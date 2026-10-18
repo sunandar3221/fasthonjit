@@ -1,8 +1,8 @@
-# Fasthon (.fsn)
+# FasthonJIT (.fsn)
 
-Fasthon adalah bahasa pemrograman modern berperforma tinggi dengan filosofi sintaks ultra-bersih (ultra-clean syntax), manajemen memori deterministik tanpa Garbage Collector (Zero-Cost RAII), arsitektur dual-engine (Bytecode Virtual Machine & AOT Compiler), serta standard library bawaan yang lengkap (*batteries-included*).
+FasthonJIT adalah bahasa pemrograman modern berkecepatan ultra-tinggi yang didukung mesin Just-In-Time (JIT) Compiler x86_64 native, filosofi sintaks ultra-bersih (ultra-clean syntax), manajemen memori deterministik tanpa Garbage Collector (Zero-Cost RAII), arsitektur multi-tier engine (Ultra Native JIT Compiler, In-Memory VM & AOT Compiler), serta standard library bawaan yang lengkap (*batteries-included*).
 
-Proyek ini dilisensikan di bawah **MIT License**.
+Proyek ini dilisensikan di bawah **Mozilla Public License 2.0 (MPL-2.0)**.
 
 ---
 
@@ -28,9 +28,10 @@ Proyek ini dilisensikan di bawah **MIT License**.
   - Bebas dari keyword `return` (ekspresi terakhir yang dievaluasi otomatis menjadi nilai balik fungsi)
   - Tanpa deklarasi tipe data wajib yang bertele-tele
   - Blok kode berbasis baris dan indentasi alami (dengan opsi penutup blok `end`)
-- **Arsitektur Zero-Disk-Cache & Dual-Engine**:
-  - **In-Memory Flat-Stack Execution (Default CLI)**: Menjalankan skrip `.fsn` langsung secara murni di dalam memori tanpa membuat berkas cache di disk (*zero storage bloat*). Menghasilkan eksekusi instan (0 ms compile time) dengan dispatch opcodes dan in-place register updates yang sangat cepat.
-  - **Ahead-Of-Time (AOT) Compiler Backend (`fasthon build`)**: Mengompilasi skrip `.fsn` langsung menjadi berkas binary `.exe` native mandiri menggunakan optimasi agresif `-O3 -march=native -flto` tanpa dependensi runtime.
+- **Arsitektur Multi-Tier Execution & Native JIT Engine**:
+  - **Ultra-Fast In-Memory JIT Compiler (Default CLI)**: Mengompilasi bytecode secara real-time langsung ke instruksi mesin x86_64 murni di dalam executable memory (`PAGE_EXECUTE_READWRITE` / `mmap PROT_EXEC`). Komputasi intensif, perulangan, dan pemanggilan rekursif dieksekusi seketika pada kecepatan *bare-metal machine code* tanpa interpretasi virtual machine.
+  - **In-Memory Flat-Stack VM Fallback**: Menyediakan eksekusi instan (0 ms compile time) untuk dynamic constructs tanpa membuat berkas cache di disk (*zero storage bloat*).
+  - **Ahead-Of-Time (AOT) Compiler Backend (`fasthonjit build`)**: Mengompilasi skrip `.fsn` langsung menjadi berkas binary native mandiri (`.exe` di Windows, ELF di Linux/Android) menggunakan optimasi agresif `-O3 -march=native` tanpa dependensi runtime.
 - **Manajemen Memori Deterministik (Zero GC Overhead)**:
   - Menggunakan model Zero-Cost RAII sehingga alokasi dan dealokasi memori terjadi seketika tanpa jeda *stop-the-world garbage collection*.
 - **Batteries-Included Standard Library**:
@@ -43,7 +44,7 @@ Proyek ini dilisensikan di bawah **MIT License**.
 
 ## 2. Tutorial & Panduan Instalasi
 
-Seluruh berkas binary resmi Fasthon otomatis dikompilasi oleh **GitHub Actions CI/CD** untuk multi-platform (**Linux x86_64**, **Linux ARM64**, **Android Termux ARM64**, dan **Windows x64**). Anda **tidak perlu repot mengompilasi manual**.
+Seluruh berkas binary resmi FasthonJIT otomatis dikompilasi oleh **GitHub Actions CI/CD** untuk multi-platform (**Linux x86_64**, **Linux ARM64**, **Android Termux ARM64**, dan **Windows x64**). Anda **tidak perlu repot mengompilasi manual**.
 
 ---
 
@@ -52,36 +53,40 @@ Seluruh berkas binary resmi Fasthon otomatis dikompilasi oleh **GitHub Actions C
 1. **Buka Terminal** Anda.
 2. **Jalankan Installer 1-Baris**:
    ```bash
-   curl -sSL https://raw.githubusercontent.com/sunandar3221/Fasthon/main/install.sh | bash
+   curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash
    ```
    > 💡 **Pilihan Versi Interaktif & Otomatis**:
    > - **Mode Interaktif**: Jika dijalankan langsung di terminal, installer akan menampilkan menu pilihan:
-   >   - Ketik `1` untuk **Fasthon v2.0.0** (Terbaru & Direkomendasikan).
+   >   - Ketik `1` untuk **FasthonJIT v2.0.0** (Terbaru & Direkomendasikan - dengan JIT Engine bawaan).
    >   - Ketik `2` untuk **Fasthon v1.0.0** (Versi Stabil Lama).
    > - **Otomatis Tanpa Tanya (Non-Interaktif)**:
-   >   - Pasang Versi 2: `curl -sSL https://raw.githubusercontent.com/sunandar3221/Fasthon/main/install.sh | bash -s -- 2`
-   >   - Pasang Versi 1: `curl -sSL https://raw.githubusercontent.com/sunandar3221/Fasthon/main/install.sh | bash -s -- 1`
+   >   - Pasang Versi 2: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 2`
+   >   - Pasang Versi 1: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 1`
    > - **Fitur Installer**:
    >   - Mendeteksi arsitektur CPU secara otomatis (`x86_64` atau `ARM64/aarch64`).
    >   - Mengunduh binary prebuilt teroptimasi dari GitHub Releases.
-   >   - Memasang binary langsung ke `/usr/local/bin/fasthon` (atau `~/.local/bin/fasthon`).
+   >   - Memasang binary langsung ke `/usr/local/bin/fasthonjit` (serta symlink alias `fasthon` dan `eas`).
 
 3. **Verifikasi Instalasi**:
-   Ketik perintah `fasthon` untuk masuk ke interactive REPL:
+   Ketik perintah `fasthonjit` untuk masuk ke interactive REPL:
    ```bash
-   fasthon
+   fasthonjit
+   ```
+   Atau cek info status mesin JIT:
+   ```bash
+   fasthonjit --jit-info
    ```
    Atau buat dan jalankan skrip pertama Anda:
    ```bash
-   echo 'print "Halo dari Fasthon di Linux!"' > halo.fsn
-   fasthon halo.fsn
+   echo 'print "Halo dari FasthonJIT di Linux!"' > halo.fsn
+   fasthonjit halo.fsn
    ```
 
 ---
 
 ### 📱 Tutorial Instalasi di Android (Termux)
 
-Fasthon dapat berjalan secara native dan berkecepatan penuh di smartphone Android Anda menggunakan aplikasi **Termux**:
+FasthonJIT dapat berjalan secara native dan berkecepatan penuh di smartphone Android Anda menggunakan aplikasi **Termux**:
 
 1. **Buka Aplikasi Termux** di Android Anda.
 2. **Siapkan Paket Pendukung**:
@@ -90,23 +95,23 @@ Fasthon dapat berjalan secara native dan berkecepatan penuh di smartphone Androi
    ```
 3. **Jalankan Installer 1-Baris**:
    ```bash
-   curl -sSL https://raw.githubusercontent.com/sunandar3221/Fasthon/main/install.sh | bash
+   curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash
    ```
    > 💡 **Kelebihan di Termux:**
-   > - **Pilihan Versi**: Anda dapat memilih **Versi 2** (v2.0.0 terbaru) atau **Versi 1** (v1.0.0) saat installer berjalan, atau langsung memasang versi 2 via `curl -sSL https://raw.githubusercontent.com/sunandar3221/Fasthon/main/install.sh | bash -s -- 2`.
-   > - Mengunduh binary native Android Bionic (`fasthon-android-arm64`) yang dikompilasi langsung menggunakan Google Android NDK Clang.
-   > - Otomatis terpasang ke `$PREFIX/bin/fasthon` sehingga tidak butuh akses root/sudo sama sekali.
+   > - **Pilihan Versi**: Anda dapat memilih **Versi 2** (v2.0.0 terbaru dengan FasthonJIT) atau **Versi 1** (v1.0.0) saat installer berjalan, atau langsung memasang versi 2 via `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 2`.
+   > - Mengunduh binary native Android Bionic (`fasthonjit-android-arm64`) yang dikompilasi langsung menggunakan Google Android NDK Clang.
+   > - Otomatis terpasang ke `$PREFIX/bin/fasthonjit` (serta alias `fasthon` dan `eas`) sehingga tidak butuh akses root/sudo sama sekali.
 
 4. **Verifikasi Instalasi**:
    Ketik perintah berikut di Termux:
    ```bash
-   fasthon
+   fasthonjit
    ```
 5. **Coba Jalankan Skrip Pertama di Android**:
    ```bash
    echo 'nama = "Android Termux"' > coba.fsn
-   echo 'print "Fasthon berjalan mulus di ${nama}"' >> coba.fsn
-   fasthon coba.fsn
+   echo 'print "FasthonJIT berjalan mulus di ${nama}"' >> coba.fsn
+   fasthonjit coba.fsn
    ```
 
 ---
@@ -118,39 +123,39 @@ Anda dapat memilih salah satu dari dua metode berikut:
 #### Opsi 1: Unduh Cepat via PowerShell 1-Baris (Direkomendasikan)
 Buka PowerShell (tekan `Win + X` lalu pilih Terminal/PowerShell) dan jalankan:
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/sunandar3221/Fasthon/releases/latest/download/fasthon.exe" -OutFile "$HOME\AppData\Local\Microsoft\WindowsApps\fasthon.exe"
+Invoke-WebRequest -Uri "https://github.com/sunandar3221/fasthonjit/releases/latest/download/fasthonjit.exe" -OutFile "$HOME\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
 ```
-> ✨ Direktori `WindowsApps` sudah otomatis terdaftar di `PATH` Windows, sehingga Anda dapat langsung mengetik `fasthon` atau `fasthon.exe` dari folder/terminal mana saja tanpa perlu setting Environment Variables secara manual!
+> ✨ Direktori `WindowsApps` sudah otomatis terdaftar di `PATH` Windows, sehingga Anda dapat langsung mengetik `fasthonjit` atau `fasthonjit.exe` dari folder/terminal mana saja tanpa perlu setting Environment Variables secara manual!
 
 #### Opsi 2: Unduh Manual dari GitHub Releases
-1. Kunjungi [Halaman Rilis GitHub Fasthon](https://github.com/sunandar3221/Fasthon/releases/latest).
-2. Unduh berkas **`fasthon.exe`** (atau `fasthon-windows-x64.exe`).
-3. Simpan berkas di folder pilihan Anda (misal `C:\Fasthon\fasthon.exe`).
+1. Kunjungi [Halaman Rilis GitHub FasthonJIT](https://github.com/sunandar3221/fasthonjit/releases/latest).
+2. Unduh berkas **`fasthonjit.exe`** (atau `fasthonjit-windows-x64.exe`).
+3. Simpan berkas di folder pilihan Anda (misal `C:\FasthonJIT\fasthonjit.exe`).
 4. *(Opsional)* Tambahkan folder tersebut ke `PATH` di Environment Variables Windows.
 5. Buka Command Prompt (CMD) atau PowerShell, lalu jalankan:
    ```cmd
-   fasthon.exe
+   fasthonjit.exe
    ```
 
 ---
 
 ### 🛠️ Opsi: Kompilasi Mandiri dari Source Code (Khusus Developer)
 
-Bagi pengembang yang ingin memodifikasi atau berkontribusi pada source code Fasthon:
+Bagi pengembang yang ingin memodifikasi atau berkontribusi pada source code FasthonJIT:
 
 - **Linux / macOS / Termux**:
   ```bash
-  git clone https://github.com/sunandar3221/Fasthon.git
-  cd Fasthon
+  git clone https://github.com/sunandar3221/fasthonjit.git
+  cd fasthonjit
   make
   sudo make install   # (di Termux cukup: make install)
   ```
 
 - **Windows (MinGW / GCC / Clang)**:
   ```bash
-  git clone https://github.com/sunandar3221/Fasthon.git
-  cd Fasthon
-  g++ -std=c++20 -O3 -march=native -flto src/*.cpp -Iinclude -lwininet -lgdi32 -luser32 -o fasthon.exe
+  git clone https://github.com/sunandar3221/fasthonjit.git
+  cd fasthonjit
+  g++ -std=c++20 -O3 -march=native src/*.cpp -Iinclude -lwininet -lgdi32 -luser32 -o fasthonjit.exe
   ```
 
 ---
@@ -1011,23 +1016,25 @@ ImportError: Modul 'io' belum dimuat. 'input' memerlukan modul 'io'.
 
 ## 6. Hasil Benchmark & Komparasi Kecepatan
 
-Pengujian performa dilakukan secara langsung di lingkungan Windows 64-bit pada prosesor multi-core dengan membandingkan **Fasthon Ultra VM Engine**, **Fasthon Standalone Native Binary**, dan **Python 3.14**.
+Pengujian performa dilakukan secara langsung di lingkungan Windows 64-bit pada prosesor multi-core dengan membandingkan **FasthonJIT Ultra JIT Engine**, **Fasthon VM (Tanpa JIT)**, **Fasthon Standalone Native Binary**, dan **Python 3.14**.
 
 ### Benchmark A: Suite Gabungan (2.000.000 Iterasi Loop + Fibonacci Rekursif $N=28$)
 
 | Runtime / Engine | Waktu Eksekusi | Kecepatan Relatif vs Python |
 | :--- | :--- | :--- |
-| **Fasthon Ultra VM Engine** | **88 ms** | **8.45x lebih cepat** |
+| **FasthonJIT Ultra JIT Engine** | **69 ms** | **10.78x lebih cepat** |
+| **Fasthon VM (Tanpa JIT)** | **88 ms** | **8.45x lebih cepat** |
 | **Python 3.14** | **744 ms** | Baseline CPython standar |
 
 ### Benchmark B: Rekursif Fibonacci Mendalam ($N = 32$)
 
-Menguji performa evaluasi rekursi bertingkat tinggi (4.356.617 pemanggilan fungsi) dengan arsitektur *direct register return*:
+Menguji performa evaluasi rekursi bertingkat tinggi (4.356.617 pemanggilan fungsi) dengan arsitektur direct JIT machine code call:
 
 | Runtime / Engine | Waktu Eksekusi | Kecepatan Relatif vs Python |
 | :--- | :--- | :--- |
-| **Fasthon Ultra VM Engine** | **150 ms** | **8.04x lebih cepat** |
+| **FasthonJIT Ultra JIT Engine** | **182 ms** | **6.62x lebih cepat** |
 | **Python 3.14** | **1.206 ms** | Baseline CPython standar |
+| **Fasthon VM (Tanpa JIT)** | **1.440 ms** | Interpretasi Bytecode VM |
 
 ### Benchmark C: Loop 10.000.000 Iterasi (Komputasi Intensif)
 
@@ -1035,8 +1042,9 @@ Menguji performa operasi perulangan dan aritmatika intensif berskala besar:
 
 | Runtime / Engine | Waktu Eksekusi | Kecepatan Relatif vs Python |
 | :--- | :--- | :--- |
-| **Fasthon Standalone Native Binary (`fasthon build`)** | **57 ms** | **37.8x lebih cepat** |
-| **Fasthon Ultra VM Engine (`fasthon script.fsn`)** | **209 ms** | **8.8x lebih cepat** |
+| **Fasthon Standalone Native Binary (`fasthonjit build`)** | **57 ms** | **37.8x lebih cepat** |
+| **FasthonJIT Ultra JIT Engine (`fasthonjit script.fsn`)** | **96 ms** | **22.5x lebih cepat** |
+| **Fasthon VM (Tanpa JIT)** | **1.051 ms** | Interpretasi Bytecode VM |
 | **Python 3.14** | **2.157 ms** | Baseline CPython standar |
 
 ### Benchmark D: Penulisan File I/O Baris Banyak (100.000 Baris Teks / 6.2 MB)
@@ -1045,29 +1053,35 @@ Menguji performa penulisan berkas teks berskala besar menggunakan buffered strea
 
 | Runtime / Engine | Waktu Eksekusi | Status & Catatan |
 | :--- | :--- | :--- |
-| **Fasthon Standalone Native Binary (`fasthon build`)** | **92 ms** | 100.000 baris (6.2 MB) ditulis langsung ke disk |
-| **Fasthon Ultra VM Engine (`fasthon script.fsn`)** | **868 ms** | Eksekusi instan di VM tanpa kompilasi binary |
+| **Fasthon Standalone Native Binary (`fasthonjit build`)** | **92 ms** | 100.000 baris (6.2 MB) ditulis langsung ke disk |
+| **FasthonJIT Ultra JIT Engine (`fasthonjit script.fsn`)** | **868 ms** | Eksekusi instan di memori tanpa kompilasi binary |
 | **Batch Fast Write (`io.write_lines` 50.000 baris)** | **8 ms** | Satu proses batch writing direct C-level buffer |
 
 ---
 
 ## 7. Panduan Eksekusi & Kompilasi AOT (Linux, Android Termux, Windows)
 
-### 1. Eksekusi Skrip Instan Tanpa Cache (Default CLI Mode)
-Jalankan berkas skrip `.fsn` secara langsung. Engine mengeksekusi secara instan di dalam memori tanpa meninggalkan berkas cache di penyimpanan disk (*zero disk cache*):
+### 1. Eksekusi Skrip Instan Berkecepatan Penuh JIT (Default CLI Mode)
+Jalankan berkas skrip `.fsn` secara langsung. Mesin JIT x86_64 otomatis mengompilasi fungsi ke instruksi mesin murni di memori eksekusi (*zero disk cache*):
 
 ```bash
 # Di Linux & Android (Termux):
-fasthon script.fsn
+fasthonjit script.fsn
 
 # Di Windows:
-.\fasthon.exe script.fsn
+.\fasthonjit.exe script.fsn
 ```
 
-### 2. Kompilasi AOT ke Executable Mandiri Multi-Platform (`fasthon build`)
-Perintah `fasthon build` mengompilasi skrip `.fsn` menjadi binary executable native mandiri (*self-contained*) dengan optimasi C++20 `-O3 -flto`.
+> 💡 **Opsi Flag JIT**:
+> - `fasthonjit --jit-info` : Menampilkan arsitektur CPU target dan status JIT engine.
+> - `fasthonjit --jit script.fsn` : Memaksa JIT compiler aktif (default).
+> - `fasthonjit --no-jit script.fsn` : Menonaktifkan JIT dan menjalankan interpretasi VM biasa.
+> - *Alias*: Perintah `fasthon` dan `eas` tetap tersedia sebagai alias penuh untuk kemudahan transisi.
 
-Binary yang dihasilkan **100% mandiri** (runtime standard library disematkan langsung di dalam berkas hasil kompilasi), sehingga berkas `.exe` atau binary Linux/Android dapat disalin dan dijalankan di komputer atau perangkat mana saja tanpa memerlukan folder source code Fasthon.
+### 2. Kompilasi AOT ke Executable Mandiri Multi-Platform (`fasthonjit build`)
+Perintah `fasthonjit build` mengompilasi skrip `.fsn` menjadi binary executable native mandiri (*self-contained*) dengan optimasi C++20 `-O3`.
+
+Binary yang dihasilkan **100% mandiri** (runtime standard library disematkan langsung di dalam berkas hasil kompilasi), sehingga berkas `.exe` atau binary Linux/Android dapat disalin dan dijalankan di komputer atau perangkat mana saja tanpa memerlukan folder source code FasthonJIT.
 
 #### 🐧 Di Linux:
 Pastikan Anda memiliki compiler C++ (`g++` atau `clang++`):
@@ -1075,31 +1089,30 @@ Pastikan Anda memiliki compiler C++ (`g++` atau `clang++`):
 # Install compiler jika belum ada (Ubuntu/Debian)
 sudo apt update && sudo apt install g++ -y
 
-# Kompilasi skrip Fasthon
-fasthon build game.fsn -o game
+# Kompilasi skrip FasthonJIT
+fasthonjit build game.fsn -o game
 
 # Jalankan langsung
 ./game
 ```
 
 #### 📱 Di Android (Termux):
-`fasthon build` dapat berjalan langsung di ponsel Android via Termux menggunakan compiler Clang bawaan Termux:
+`fasthonjit build` dapat berjalan langsung di ponsel Android via Termux menggunakan compiler Clang bawaan Termux:
 ```bash
 # Siapkan Clang di Termux (sekali saja)
 pkg update && pkg install clang -y
 
-# Kompilasi skrip Fasthon menjadi binary native Android
-fasthon build game.fsn -o game
+# Kompilasi skrip FasthonJIT menjadi binary native Android
+fasthonjit build game.fsn -o game
 
 # Jalankan langsung di Termux
 ./game
 ```
-> ⚡ **Catatan Android Termux:** Compiler otomatis mendeteksi arsitektur ARM64 dan menggunakan optimasi `-O3 -flto` yang sepenuhnya kompatibel dengan kernel Android.
 
 #### 🪟 Di Windows:
 Menggunakan compiler MinGW-w64 (`g++` atau `clang++`):
 ```cmd
-fasthon build game.fsn -o game.exe
+fasthonjit build game.fsn -o game.exe
 .\game.exe
 ```
 
@@ -1108,25 +1121,25 @@ Anda dapat secara eksplisit memilih target platform binary yang ingin dihasilkan
 
 ```bash
 # Build untuk Linux (ELF Binary):
-fasthon build game.fsn --target linux -o game
+fasthonjit build game.fsn --target linux -o game
 
 # Build untuk Android ARM64 (ELF Binary):
-fasthon build game.fsn --target android -o game
+fasthonjit build game.fsn --target android -o game
 
 # Build untuk Windows (.exe):
-fasthon build game.fsn --target windows -o game.exe
+fasthonjit build game.fsn --target windows -o game.exe
 ```
 > 💡 Anda juga dapat menggunakan flag shortcut seperti `--linux`, `--android`, atau `--windows`.
 
 ### 3. Mode Interaktif (Interactive REPL)
-Jalankan `fasthon` tanpa argumen untuk masuk ke interactive shell:
+Jalankan `fasthonjit` tanpa argumen untuk masuk ke interactive shell:
 
 ```bash
 # Di Linux & Android (Termux):
-fasthon
+fasthonjit
 
 # Di Windows:
-.\fasthon.exe
+.\fasthonjit.exe
 ```
 Ketik `exit` untuk keluar dari REPL.
 
@@ -1134,5 +1147,5 @@ Ketik `exit` untuk keluar dari REPL.
 
 ## 8. Lisensi
 
-Proyek ini dirilis di bawah lisensi terbuka **MIT License**. Lihat berkas [`LICENSE`](LICENSE) untuk informasi lebih lanjut.
+Proyek ini dirilis di bawah lisensi terbuka **Mozilla Public License 2.0 (MPL-2.0)**. Lihat berkas [`LICENSE`](LICENSE) untuk informasi lebih lanjut.
 

@@ -1,4 +1,5 @@
 #include "VM.hpp"
+#include "Jit.hpp"
 #include "Lexer.hpp"
 #include "Parser.hpp"
 #include "BytecodeCompiler.hpp"
@@ -28,6 +29,7 @@ void VM::registerFunctions(const std::unordered_map<std::string, std::shared_ptr
     for (const auto& kv : fns) {
         functions_[kv.first] = kv.second;
     }
+    JitEngine::instance().compileAllFunctions(functions_);
 }
 
 void VM::loadLibrary(const std::string& name) {
@@ -174,6 +176,7 @@ Value VM::run(Chunk* chunk) {
     for (auto& kv : functions_) {
         resolveChunk(kv.second.get());
     }
+    JitEngine::instance().compileAllFunctions(functions_);
 
     Value* top = stack_.data();
     size_t frameCount = 0;
@@ -528,6 +531,42 @@ Value VM::run(Chunk* chunk) {
 
                 Chunk* nextChunk = curChunk->cachedChunks[fnIdx];
                 if (nextChunk) {
+                    if (nextChunk->isJitCompiled && nextChunk->jitFuncInt && argCount == nextChunk->arity) {
+                        bool allInt = true;
+                        int64_t args[6] = {0};
+                        for (int i = 0; i < argCount && i < 6; ++i) {
+                            Value& v = *(top - argCount + i);
+                            if (v.type != ValueType::INT && v.type != ValueType::BOOL) {
+                                allInt = false;
+                                break;
+                            }
+                            args[i] = v.asInt();
+                        }
+                        if (allInt) {
+                            int64_t res = 0;
+                            typedef int64_t (*Jit0)();
+                            typedef int64_t (*Jit1)(int64_t);
+                            typedef int64_t (*Jit2)(int64_t, int64_t);
+                            typedef int64_t (*Jit3)(int64_t, int64_t, int64_t);
+                            typedef int64_t (*Jit4)(int64_t, int64_t, int64_t, int64_t);
+                            typedef int64_t (*Jit5)(int64_t, int64_t, int64_t, int64_t, int64_t);
+                            typedef int64_t (*Jit6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+
+                            switch (argCount) {
+                                case 0: res = ((Jit0)nextChunk->jitFuncInt)(); break;
+                                case 1: res = ((Jit1)nextChunk->jitFuncInt)(args[0]); break;
+                                case 2: res = ((Jit2)nextChunk->jitFuncInt)(args[0], args[1]); break;
+                                case 3: res = ((Jit3)nextChunk->jitFuncInt)(args[0], args[1], args[2]); break;
+                                case 4: res = ((Jit4)nextChunk->jitFuncInt)(args[0], args[1], args[2], args[3]); break;
+                                case 5: res = ((Jit5)nextChunk->jitFuncInt)(args[0], args[1], args[2], args[3], args[4]); break;
+                                case 6: res = ((Jit6)nextChunk->jitFuncInt)(args[0], args[1], args[2], args[3], args[4], args[5]); break;
+                            }
+                            top -= argCount;
+                            *top++ = Value(res);
+                            break;
+                        }
+                    }
+
                     frame->ip = ip;
                     Value* nextSlots = top - argCount;
                     for (int i = argCount; i < nextChunk->localsCount; ++i) {
@@ -780,9 +819,48 @@ Value VM::run(Chunk* chunk) {
                     }
                     auto it = functions_.find(targetName);
                     if (it != functions_.end()) {
-                        frame->ip = ip;
                         Chunk* nChunk = it->second.get();
                         curChunk->cachedChunks[fnIdx] = nChunk;
+                        if (!nChunk->isJitCompiled && !nChunk->jitAttempted) {
+                            JitEngine::instance().compileFunction(nChunk);
+                        }
+                        if (nChunk->isJitCompiled && nChunk->jitFuncInt && argCount == nChunk->arity) {
+                            bool allInt = true;
+                            int64_t args[6] = {0};
+                            for (int i = 0; i < argCount && i < 6; ++i) {
+                                Value& v = *(top - argCount + i);
+                                if (v.type != ValueType::INT && v.type != ValueType::BOOL) {
+                                    allInt = false;
+                                    break;
+                                }
+                                args[i] = v.asInt();
+                            }
+                            if (allInt) {
+                                int64_t res = 0;
+                                typedef int64_t (*Jit0)();
+                                typedef int64_t (*Jit1)(int64_t);
+                                typedef int64_t (*Jit2)(int64_t, int64_t);
+                                typedef int64_t (*Jit3)(int64_t, int64_t, int64_t);
+                                typedef int64_t (*Jit4)(int64_t, int64_t, int64_t, int64_t);
+                                typedef int64_t (*Jit5)(int64_t, int64_t, int64_t, int64_t, int64_t);
+                                typedef int64_t (*Jit6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
+
+                                switch (argCount) {
+                                    case 0: res = ((Jit0)nChunk->jitFuncInt)(); break;
+                                    case 1: res = ((Jit1)nChunk->jitFuncInt)(args[0]); break;
+                                    case 2: res = ((Jit2)nChunk->jitFuncInt)(args[0], args[1]); break;
+                                    case 3: res = ((Jit3)nChunk->jitFuncInt)(args[0], args[1], args[2]); break;
+                                    case 4: res = ((Jit4)nChunk->jitFuncInt)(args[0], args[1], args[2], args[3]); break;
+                                    case 5: res = ((Jit5)nChunk->jitFuncInt)(args[0], args[1], args[2], args[3], args[4]); break;
+                                    case 6: res = ((Jit6)nChunk->jitFuncInt)(args[0], args[1], args[2], args[3], args[4], args[5]); break;
+                                }
+                                top -= argCount;
+                                *top++ = Value(res);
+                                break;
+                            }
+                        }
+
+                        frame->ip = ip;
                         Value* nextSlots = top - argCount;
                         for (int i = argCount; i < nChunk->localsCount; ++i) {
                             *top++ = Value();

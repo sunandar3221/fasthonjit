@@ -8,7 +8,7 @@
 Repl::Repl() {}
 
 void Repl::run() {
-    std::cout << "Fasthon Interactive Environment (v2.0)\n";
+    std::cout << "FasthonJIT Interactive Environment (v2.0 - JIT Active)\n";
     std::cout << "Type 'exit' to quit.\n\n";
 
     std::string line;
@@ -114,7 +114,7 @@ void Repl::run() {
 
     while (true) {
         if (buffer.empty()) {
-            std::cout << "Fasthon> ";
+            std::cout << "fasthonjit> ";
         } else {
             std::cout << "... ";
         }

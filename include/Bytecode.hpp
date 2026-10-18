@@ -72,6 +72,10 @@ public:
     std::vector<int> columns;
     std::vector<int> lengths;
 
+    void* jitFuncInt;
+    bool isJitCompiled;
+    bool jitAttempted;
+
     Chunk(std::string chunkName = "", int fnArity = 0);
 
     size_t addConstant(Value val);

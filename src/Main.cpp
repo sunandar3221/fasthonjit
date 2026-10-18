@@ -3,6 +3,7 @@
 #include "Interpreter.hpp"
 #include "BytecodeCompiler.hpp"
 #include "VM.hpp"
+#include "Jit.hpp"
 #include "AotGenerator.hpp"
 #include "Repl.hpp"
 #include "StandardLibrary.hpp"
@@ -19,17 +20,21 @@ int main(int argc, char* argv[]) {
 
     std::string arg1 = argv[1];
     if (arg1 == "-v" || arg1 == "--version" || arg1 == "version") {
-        std::cout << "Fasthon v2.0.0 (Ultra High-Performance Engine)\n";
+        std::cout << "FasthonJIT v2.0.0 (Ultra High-Performance JIT Engine)\n";
+        return 0;
+    }
+    if (arg1 == "--jit-info" || arg1 == "-j") {
+        JitEngine::instance().printJitInfo();
         return 0;
     }
     if (arg1 == "-h" || arg1 == "--help" || arg1 == "help") {
-        std::cout << "Usage: fasthon [script.fsn] | build <script.fsn> [-o output] [--target <windows|linux|android>] | --version\n";
+        std::cout << "Usage: fasthonjit [script.fsn] | build <script.fsn> [-o output] [--target <windows|linux|android>] | --jit-info | --version\n";
         return 0;
     }
 
     if (arg1 == "build" || arg1 == "-c" || arg1 == "--compile") {
         if (argc < 3) {
-            std::cerr << "Usage: fasthon build <input.fsn> [-o <output>] [--target <windows|linux|android>]\n";
+            std::cerr << "Usage: fasthonjit build <input.fsn> [-o <output>] [--target <windows|linux|android>]\n";
             return 1;
         }
 
@@ -57,7 +62,7 @@ int main(int argc, char* argv[]) {
         }
 
         if (inputFile.empty()) {
-            std::cerr << "Usage: fasthon build <input.fsn> [-o <output>] [--target <windows|linux|android>]\n";
+            std::cerr << "Usage: fasthonjit build <input.fsn> [-o <output>] [--target <windows|linux|android>]\n";
             return 1;
         }
 
@@ -113,7 +118,7 @@ int main(int argc, char* argv[]) {
         AotGenerator aot;
         std::string cppCode = aot.generateCpp(program.get());
 
-        std::string tempCpp = "_fasthon_build_temp.cpp";
+        std::string tempCpp = "_fasthonjit_build_temp.cpp";
         std::ofstream outCpp(tempCpp);
         if (!outCpp.is_open()) {
             std::cerr << "Error: Could not create temporary AOT source file.\n";
@@ -134,12 +139,24 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    std::string scriptPath = (arg1 == "run") ? (argc > 2 ? argv[2] : "") : arg1;
-    if (scriptPath == "--vm" || scriptPath == "-v") {
-        scriptPath = (argc > 2 ? argv[2] : "");
+    bool enableJit = true;
+    std::string scriptPath;
+    for (int i = 1; i < argc; ++i) {
+        std::string a = argv[i];
+        if (a == "--no-jit") {
+            enableJit = false;
+        } else if (a == "--jit") {
+            enableJit = true;
+        } else if (a == "run" || a == "--vm" || a == "-v") {
+            // verb or flag
+        } else if (scriptPath.empty() && !a.empty() && a[0] != '-') {
+            scriptPath = a;
+        }
     }
+    JitEngine::instance().setEnabled(enableJit);
+
     if (scriptPath.empty()) {
-        std::cerr << "Usage: fasthon <script.fsn>\n";
+        std::cerr << "Usage: fasthonjit <script.fsn>\n";
         return 1;
     }
 

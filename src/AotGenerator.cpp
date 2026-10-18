@@ -1696,8 +1696,8 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
             compiler = "clang++";
         }
 
-        std::string lto = (compiler.find("clang") != std::string::npos) ? "" : "-flto";
-        std::string cmd = compiler + " -std=c++20 -O3 " + lto + " -static -static-libgcc -static-libstdc++ " + sourceFile + " -lwininet -lgdi32 -luser32 -o " + outputFile;
+        std::string lto = "";
+        std::string cmd = compiler + " -std=c++20 -O3 -static -static-libgcc -static-libstdc++ " + sourceFile + " -lwininet -lgdi32 -luser32 -o " + outputFile;
         res = std::system(cmd.c_str());
         if (res != 0) {
             std::string fallbackCmd = compiler + " -std=c++20 -O3 -static -static-libgcc -static-libstdc++ " + sourceFile + " -lwininet -lgdi32 -luser32 -o " + outputFile;

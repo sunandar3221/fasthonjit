@@ -1,7 +1,8 @@
 #include "Bytecode.hpp"
 
 Chunk::Chunk(std::string chunkName, int fnArity)
-    : name(std::move(chunkName)), arity(fnArity), localsCount(0) {}
+    : name(std::move(chunkName)), arity(fnArity), localsCount(0),
+      jitFuncInt(nullptr), isJitCompiled(false), jitAttempted(false) {}
 
 size_t Chunk::addConstant(Value val) {
     constants.push_back(std::move(val));
