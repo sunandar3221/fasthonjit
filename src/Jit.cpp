@@ -129,6 +129,11 @@ int X64Emitter::getEvalDisp(int depth, int numLocals) const {
 
 void X64Emitter::emitPrologue(int numLocals, int evalMax, int arity) {
     emit8(0x55); // push rbp
+    emit8(0x53); // push rbx
+    emit8(0x41); emit8(0x54); // push r12
+    emit8(0x41); emit8(0x55); // push r13
+    emit8(0x41); emit8(0x56); // push r14
+    emit8(0x41); emit8(0x57); // push r15
     emitRex(true, false, false, false);
     emit8(0x89);
     emitModRM(3, 4, 5); // mov rbp, rsp
@@ -144,20 +149,35 @@ void X64Emitter::emitPrologue(int numLocals, int evalMax, int arity) {
 #else
     static const Reg inArgRegs[] = { RDI, RSI, RDX, RCX, R8, R9 };
 #endif
+    static const Reg localRegs[] = { R12, R13, R14, R15, RBX };
     int maxRegs = sizeof(inArgRegs) / sizeof(inArgRegs[0]);
     int toCopy = std::min(arity, maxRegs);
     for (int i = 0; i < toCopy; ++i) {
-        int disp = getLocalDisp(i);
-        movStackReg(disp, inArgRegs[i]);
+        if (i < 5) {
+            movRegReg(localRegs[i], inArgRegs[i]);
+        } else {
+            movStackReg(getLocalDisp(i), inArgRegs[i]);
+        }
+    }
+    for (int i = arity; i < numLocals; ++i) {
+        if (i < 5) {
+            xorRegReg(localRegs[i], localRegs[i]);
+        } else {
+            movStackImm(getLocalDisp(i), 0);
+        }
     }
 }
 
 void X64Emitter::emitEpilogue(int frameSize) {
+    (void)frameSize;
     emitRex(true, false, false, false);
-    emit8(0x81);
-    emitModRM(3, 0, 4); // add rsp, frameSize
-    emit32(frameSize);
-
+    emit8(0x89);
+    emitModRM(3, 5, 4); // mov rsp, rbp
+    emit8(0x41); emit8(0x5f); // pop r15
+    emit8(0x41); emit8(0x5e); // pop r14
+    emit8(0x41); emit8(0x5d); // pop r13
+    emit8(0x41); emit8(0x5c); // pop r12
+    emit8(0x5b); // pop rbx
     emit8(0x5d); // pop rbp
     emit8(0xc3); // ret
 }
@@ -262,6 +282,80 @@ void X64Emitter::subStackImm(int stackSlot, int64_t imm) {
     emit8(0x24);
     emitDisp(stackSlot);
     emit32(static_cast<int32_t>(imm));
+}
+
+void X64Emitter::incReg(Reg dst) {
+    emitRex(true, false, false, dst >= 8);
+    emit8(0xff);
+    emitModRM(3, 0, dst & 7);
+}
+
+void X64Emitter::decReg(Reg dst) {
+    emitRex(true, false, false, dst >= 8);
+    emit8(0xff);
+    emitModRM(3, 1, dst & 7);
+}
+
+void X64Emitter::xorRegReg(Reg dst, Reg src) {
+    emitRex(true, src >= 8, false, dst >= 8);
+    emit8(0x31);
+    emitModRM(3, src & 7, dst & 7);
+}
+
+void X64Emitter::addRegImm(Reg dst, int64_t imm) {
+    if (imm >= -128 && imm <= 127) {
+        emitRex(true, false, false, dst >= 8);
+        emit8(0x83);
+        emitModRM(3, 0, dst & 7);
+        emit8(static_cast<uint8_t>(imm));
+    } else if (imm >= -2147483648LL && imm <= 2147483647LL) {
+        emitRex(true, false, false, dst >= 8);
+        emit8(0x81);
+        emitModRM(3, 0, dst & 7);
+        emit32(static_cast<uint32_t>(imm));
+    } else {
+        movRegImm64(R10, imm);
+        addRegReg(dst, R10);
+    }
+}
+
+void X64Emitter::subRegImm(Reg dst, int64_t imm) {
+    if (imm >= -128 && imm <= 127) {
+        emitRex(true, false, false, dst >= 8);
+        emit8(0x83);
+        emitModRM(3, 5, dst & 7);
+        emit8(static_cast<uint8_t>(imm));
+    } else if (imm >= -2147483648LL && imm <= 2147483647LL) {
+        emitRex(true, false, false, dst >= 8);
+        emit8(0x81);
+        emitModRM(3, 5, dst & 7);
+        emit32(static_cast<uint32_t>(imm));
+    } else {
+        movRegImm64(R10, imm);
+        subRegReg(dst, R10);
+    }
+}
+
+void X64Emitter::cmpRegImm(Reg r, int64_t imm) {
+    if (imm >= -128 && imm <= 127) {
+        emitRex(true, false, false, r >= 8);
+        emit8(0x83);
+        emitModRM(3, 7, r & 7);
+        emit8(static_cast<uint8_t>(imm));
+    } else if (imm >= -2147483648LL && imm <= 2147483647LL) {
+        emitRex(true, false, false, r >= 8);
+        emit8(0x81);
+        emitModRM(3, 7, r & 7);
+        emit32(static_cast<uint32_t>(imm));
+    } else {
+        movRegImm64(R10, imm);
+        cmpRegReg(r, R10);
+    }
+}
+
+void X64Emitter::movStackImm(int stackSlot, int64_t imm) {
+    movRegImm64(RAX, imm);
+    movStackReg(stackSlot, RAX);
 }
 
 void X64Emitter::cmpRegReg(Reg r1, Reg r2) {
@@ -397,7 +491,13 @@ void Arm64Emitter::emitPrologue(int numLocals, int evalMax, int arity) {
     emit32(0xa9bf7bfd);
     // 2. mov x29, sp
     emit32(0x910003fd);
-    // 3. Stack frame allocation
+    // 3. Save callee-saved registers X19-X26
+    emit32(0xa9bf53f3); // stp x19, x20, [sp, #-16]!
+    emit32(0xa9bf5bf5); // stp x21, x22, [sp, #-16]!
+    emit32(0xa9bf63f7); // stp x23, x24, [sp, #-16]!
+    emit32(0xa9bf6bf9); // stp x25, x26, [sp, #-16]!
+
+    // 4. Stack frame allocation
     int frameSize = calculateFrameSize(numLocals, evalMax);
     if (frameSize <= 4095) {
         // sub sp, sp, #frameSize
@@ -407,21 +507,39 @@ void Arm64Emitter::emitPrologue(int numLocals, int evalMax, int arity) {
         // sub sp, sp, x9
         emit32(0xcb2963ff);
     }
-    // 4. Save incoming arguments (in X0..X5) into local variable slots [sp, #disp]
-    static const Reg inArgRegs[] = { X0, X1, X2, X3, X4, X5 };
-    int toCopy = std::min(arity, 6);
+
+    // 5. Save incoming arguments and zero unpassed locals
+    static const Reg inArgRegs[] = { X0, X1, X2, X3, X4, X5, X6, X7 };
+    static const Reg localRegs[] = { X19, X20, X21, X22, X23, X24, X25, X26 };
+    int maxArgs = 8;
+    int toCopy = std::min(arity, maxArgs);
     for (int i = 0; i < toCopy; ++i) {
-        int disp = getLocalDisp(i);
-        movStackReg(disp, inArgRegs[i]);
+        if (i < 8) {
+            movRegReg(localRegs[i], inArgRegs[i]);
+        } else {
+            movStackReg(getLocalDisp(i), inArgRegs[i]);
+        }
+    }
+    for (int i = arity; i < numLocals; ++i) {
+        if (i < 8) {
+            movRegReg(localRegs[i], XZR);
+        } else {
+            movStackImm(getLocalDisp(i), 0);
+        }
     }
 }
 
 void Arm64Emitter::emitEpilogue() {
-    // 1. mov sp, x29
-    emit32(0x910003bf);
-    // 2. ldp x29, x30, [sp], #16
-    emit32(0xa8c17bfd);
-    // 3. ret
+    // 1. sub sp, x29, #64 (reset sp to base of saved x19..x26)
+    emit32(0xd10103bf);
+    // 2. Restore x19-x26 in reverse order
+    emit32(0xa8c16bf9); // ldp x25, x26, [sp], #16
+    emit32(0xa8c163f7); // ldp x23, x24, [sp], #16
+    emit32(0xa8c15bf5); // ldp x21, x22, [sp], #16
+    emit32(0xa8c153f3); // ldp x19, x20, [sp], #16
+    // 3. Restore x29, x30
+    emit32(0xa8c17bfd); // ldp x29, x30, [sp], #16
+    // 4. ret
     emit32(0xd65f03c0);
 }
 
@@ -558,6 +676,45 @@ void Arm64Emitter::subStackImm(int stackDisp, int64_t imm) {
     addStackImm(stackDisp, -imm);
 }
 
+void Arm64Emitter::incReg(Reg dst) {
+    // add dst, dst, #1
+    emit32(0x91000400 | ((dst & 0x1f) << 5) | (dst & 0x1f));
+}
+
+void Arm64Emitter::decReg(Reg dst) {
+    // sub dst, dst, #1
+    emit32(0xd1000400 | ((dst & 0x1f) << 5) | (dst & 0x1f));
+}
+
+void Arm64Emitter::addRegImm(Reg dst, int64_t imm) {
+    if (imm >= 0 && imm <= 4095) {
+        emit32(0x91000000 | ((imm & 0xfff) << 10) | ((dst & 0x1f) << 5) | (dst & 0x1f));
+    } else if (imm < 0 && -imm <= 4095) {
+        emit32(0xd1000000 | (((-imm) & 0xfff) << 10) | ((dst & 0x1f) << 5) | (dst & 0x1f));
+    } else {
+        movRegImm64(X9, imm);
+        addRegReg(dst, X9);
+    }
+}
+
+void Arm64Emitter::subRegImm(Reg dst, int64_t imm) {
+    addRegImm(dst, -imm);
+}
+
+void Arm64Emitter::cmpRegImm(Reg r, int64_t imm) {
+    if (imm >= 0 && imm <= 4095) {
+        emit32(0xf100001f | ((imm & 0xfff) << 10) | ((r & 0x1f) << 5));
+    } else {
+        movRegImm64(X9, imm);
+        cmpRegReg(r, X9);
+    }
+}
+
+void Arm64Emitter::movStackImm(int stackDisp, int64_t imm) {
+    movRegImm64(X9, imm);
+    movStackReg(stackDisp, X9);
+}
+
 void Arm64Emitter::cmpRegReg(Reg r1, Reg r2) {
     // subs xzr, r1, r2
     emit32(0xeb00001f | ((r2 & 0x1f) << 16) | ((r1 & 0x1f) << 5));
@@ -613,6 +770,36 @@ void Arm64Emitter::emitRet() {
 // ==========================================
 // JitCompiler Implementation
 // ==========================================
+
+static constexpr int MAX_REG_LOCALS_X64 = 5;
+static const X64Emitter::Reg kLocalRegsX64[MAX_REG_LOCALS_X64] = {
+    X64Emitter::R12,
+    X64Emitter::R13,
+    X64Emitter::R14,
+    X64Emitter::R15,
+    X64Emitter::RBX
+};
+
+static constexpr int MAX_REG_LOCALS_ARM64 = 8;
+static const Arm64Emitter::Reg kLocalRegsArm64[MAX_REG_LOCALS_ARM64] = {
+    Arm64Emitter::X19,
+    Arm64Emitter::X20,
+    Arm64Emitter::X21,
+    Arm64Emitter::X22,
+    Arm64Emitter::X23,
+    Arm64Emitter::X24,
+    Arm64Emitter::X25,
+    Arm64Emitter::X26
+};
+
+static inline bool isCmpOp(OpCode op) {
+    return op == OpCode::OP_LESS ||
+           op == OpCode::OP_LESS_EQUAL ||
+           op == OpCode::OP_GREATER ||
+           op == OpCode::OP_GREATER_EQUAL ||
+           op == OpCode::OP_EQUAL ||
+           op == OpCode::OP_NOT_EQUAL;
+}
 
 bool JitCompiler::canCompileInt(Chunk* chunk) {
 #if !defined(FASTHON_JIT_TARGET_X64) && !defined(FASTHON_JIT_TARGET_ARM64)
@@ -756,6 +943,24 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                 ip += 2;
                 const auto& c = chunk->constants[idx];
                 int64_t val = (c.isInt() ? c.asInt() : (c.isBool() ? (c.boolVal ? 1 : 0) : 0));
+
+                if (ip + 4 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_SET_LOCAL &&
+                    static_cast<OpCode>(code[ip + 3]) == OpCode::OP_POP) {
+                    uint16_t slot = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    ip += 4;
+                    if (slot < MAX_REG_LOCALS_X64) {
+                        if (val == 0) {
+                            emitter.xorRegReg(kLocalRegsX64[slot], kLocalRegsX64[slot]);
+                        } else {
+                            emitter.movRegImm64(kLocalRegsX64[slot], val);
+                        }
+                    } else {
+                        emitter.movStackImm(emitter.getLocalDisp(slot), val);
+                    }
+                    break;
+                }
+
                 emitter.movRegImm64(X64Emitter::RAX, val);
                 emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), X64Emitter::RAX);
                 evalDepth++;
@@ -781,8 +986,108 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_GET_LOCAL: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
-                emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), X64Emitter::RAX);
+
+                // Peephole 1: OP_GET_LOCAL slot; OP_RETURN
+                if (ip < code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_RETURN) {
+                    ip++;
+                    if (slot < MAX_REG_LOCALS_X64) {
+                        emitter.movRegReg(X64Emitter::RAX, kLocalRegsX64[slot]);
+                    } else {
+                        emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+                    }
+                    size_t jmpPos = emitter.emitJmp();
+                    epilogueJumps.push_back(jmpPos);
+                    break;
+                }
+
+                // Peephole 2: OP_GET_LOCAL slot; OP_APPEND_LOCAL targetSlot
+                if (ip + 3 <= code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_APPEND_LOCAL) {
+                    uint16_t targetSlot = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    ip += 3;
+                    X64Emitter::Reg srcReg = (slot < MAX_REG_LOCALS_X64) ? kLocalRegsX64[slot] : X64Emitter::RAX;
+                    if (slot >= MAX_REG_LOCALS_X64) {
+                        emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+                    }
+                    if (targetSlot < MAX_REG_LOCALS_X64) {
+                        emitter.addRegReg(kLocalRegsX64[targetSlot], srcReg);
+                    } else {
+                        emitter.addStackReg(emitter.getLocalDisp(targetSlot), srcReg);
+                    }
+                    break;
+                }
+
+                // Peephole 3: OP_GET_LOCAL slotA; OP_GET_LOCAL slotB; <CMP_OP>; OP_JUMP_IF_FALSE offset; OP_POP
+                if (ip + 8 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_GET_LOCAL &&
+                    isCmpOp(static_cast<OpCode>(code[ip + 3])) &&
+                    static_cast<OpCode>(code[ip + 4]) == OpCode::OP_JUMP_IF_FALSE &&
+                    static_cast<OpCode>(code[ip + 7]) == OpCode::OP_POP) {
+                    uint16_t slotB = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    OpCode cmpOp = static_cast<OpCode>(code[ip + 3]);
+                    uint16_t jmpOffset = static_cast<uint16_t>((code[ip + 5] << 8) | code[ip + 6]);
+                    size_t targetBcIp = (ip + 7) + jmpOffset;
+                    ip += 8;
+
+                    X64Emitter::Reg regA = (slot < MAX_REG_LOCALS_X64) ? kLocalRegsX64[slot] : X64Emitter::RAX;
+                    if (slot >= MAX_REG_LOCALS_X64) emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+
+                    X64Emitter::Reg regB = (slotB < MAX_REG_LOCALS_X64) ? kLocalRegsX64[slotB] : X64Emitter::RDX;
+                    if (slotB >= MAX_REG_LOCALS_X64) emitter.movRegStack(X64Emitter::RDX, emitter.getLocalDisp(slotB));
+
+                    emitter.cmpRegReg(regA, regB);
+                    uint8_t invertedCc = 0x8d; // jge
+                    switch (cmpOp) {
+                        case OpCode::OP_LESS: invertedCc = 0x8d; break;          // jge
+                        case OpCode::OP_LESS_EQUAL: invertedCc = 0x8f; break;    // jg
+                        case OpCode::OP_GREATER: invertedCc = 0x8e; break;       // jle
+                        case OpCode::OP_GREATER_EQUAL: invertedCc = 0x8c; break; // jl
+                        case OpCode::OP_EQUAL: invertedCc = 0x85; break;         // jne
+                        case OpCode::OP_NOT_EQUAL: invertedCc = 0x84; break;     // je
+                        default: break;
+                    }
+                    size_t fixup = emitter.emitJcc(invertedCc);
+                    fixups.push_back({ fixup, targetBcIp });
+                    break;
+                }
+
+                // Peephole 4: OP_GET_LOCAL slotA; OP_CONSTANT idx; <CMP_OP>; OP_JUMP_IF_FALSE offset; OP_POP
+                if (ip + 8 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_CONSTANT &&
+                    isCmpOp(static_cast<OpCode>(code[ip + 3])) &&
+                    static_cast<OpCode>(code[ip + 4]) == OpCode::OP_JUMP_IF_FALSE &&
+                    static_cast<OpCode>(code[ip + 7]) == OpCode::OP_POP) {
+                    uint16_t cIdx = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    OpCode cmpOp = static_cast<OpCode>(code[ip + 3]);
+                    uint16_t jmpOffset = static_cast<uint16_t>((code[ip + 5] << 8) | code[ip + 6]);
+                    size_t targetBcIp = (ip + 7) + jmpOffset;
+                    int64_t cVal = (cIdx < chunk->constants.size()) ? chunk->constants[cIdx].asInt() : 0;
+                    ip += 8;
+
+                    X64Emitter::Reg regA = (slot < MAX_REG_LOCALS_X64) ? kLocalRegsX64[slot] : X64Emitter::RAX;
+                    if (slot >= MAX_REG_LOCALS_X64) emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+
+                    emitter.cmpRegImm(regA, cVal);
+                    uint8_t invertedCc = 0x8d;
+                    switch (cmpOp) {
+                        case OpCode::OP_LESS: invertedCc = 0x8d; break;
+                        case OpCode::OP_LESS_EQUAL: invertedCc = 0x8f; break;
+                        case OpCode::OP_GREATER: invertedCc = 0x8e; break;
+                        case OpCode::OP_GREATER_EQUAL: invertedCc = 0x8c; break;
+                        case OpCode::OP_EQUAL: invertedCc = 0x85; break;
+                        case OpCode::OP_NOT_EQUAL: invertedCc = 0x84; break;
+                        default: break;
+                    }
+                    size_t fixup = emitter.emitJcc(invertedCc);
+                    fixups.push_back({ fixup, targetBcIp });
+                    break;
+                }
+
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), kLocalRegsX64[slot]);
+                } else {
+                    emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+                    emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), X64Emitter::RAX);
+                }
                 evalDepth++;
                 break;
             }
@@ -790,8 +1095,13 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
                 if (evalDepth > 0) {
-                    emitter.movRegStack(X64Emitter::RAX, emitter.getEvalDisp(evalDepth - 1, numLocals));
-                    emitter.movStackReg(emitter.getLocalDisp(slot), X64Emitter::RAX);
+                    evalDepth--;
+                    if (slot < MAX_REG_LOCALS_X64) {
+                        emitter.movRegStack(kLocalRegsX64[slot], emitter.getEvalDisp(evalDepth, numLocals));
+                    } else {
+                        emitter.movRegStack(X64Emitter::RAX, emitter.getEvalDisp(evalDepth, numLocals));
+                        emitter.movStackReg(emitter.getLocalDisp(slot), X64Emitter::RAX);
+                    }
                 }
                 break;
             }
@@ -831,9 +1141,9 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_DIV: {
                 if (evalDepth >= 2) {
                     evalDepth--;
-                    emitter.movRegStack(X64Emitter::RBX, emitter.getEvalDisp(evalDepth, numLocals));
+                    emitter.movRegStack(X64Emitter::R11, emitter.getEvalDisp(evalDepth, numLocals));
                     emitter.movRegStack(X64Emitter::RAX, emitter.getEvalDisp(evalDepth - 1, numLocals));
-                    emitter.idivReg(X64Emitter::RBX);
+                    emitter.idivReg(X64Emitter::R11);
                     emitter.movStackReg(emitter.getEvalDisp(evalDepth - 1, numLocals), X64Emitter::RAX);
                 }
                 break;
@@ -841,9 +1151,9 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_MOD: {
                 if (evalDepth >= 2) {
                     evalDepth--;
-                    emitter.movRegStack(X64Emitter::RBX, emitter.getEvalDisp(evalDepth, numLocals));
+                    emitter.movRegStack(X64Emitter::R11, emitter.getEvalDisp(evalDepth, numLocals));
                     emitter.movRegStack(X64Emitter::RAX, emitter.getEvalDisp(evalDepth - 1, numLocals));
-                    emitter.imodReg(X64Emitter::RBX);
+                    emitter.imodReg(X64Emitter::R11);
                     emitter.movStackReg(emitter.getEvalDisp(evalDepth - 1, numLocals), X64Emitter::RAX);
                 }
                 break;
@@ -920,27 +1230,43 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_INC_LOCAL: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                emitter.incStack(emitter.getLocalDisp(slot));
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.incReg(kLocalRegsX64[slot]);
+                } else {
+                    emitter.incStack(emitter.getLocalDisp(slot));
+                }
                 break;
             }
             case OpCode::OP_DEC_LOCAL: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                emitter.decStack(emitter.getLocalDisp(slot));
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.decReg(kLocalRegsX64[slot]);
+                } else {
+                    emitter.decStack(emitter.getLocalDisp(slot));
+                }
                 break;
             }
             case OpCode::OP_ADD_LOCAL_INT: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 int16_t imm = static_cast<int16_t>((code[ip + 2] << 8) | code[ip + 3]);
                 ip += 4;
-                emitter.addStackImm(emitter.getLocalDisp(slot), imm);
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.addRegImm(kLocalRegsX64[slot], imm);
+                } else {
+                    emitter.addStackImm(emitter.getLocalDisp(slot), imm);
+                }
                 break;
             }
             case OpCode::OP_SUB_LOCAL_INT: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 int16_t imm = static_cast<int16_t>((code[ip + 2] << 8) | code[ip + 3]);
                 ip += 4;
-                emitter.subStackImm(emitter.getLocalDisp(slot), imm);
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.subRegImm(kLocalRegsX64[slot], imm);
+                } else {
+                    emitter.subStackImm(emitter.getLocalDisp(slot), imm);
+                }
                 break;
             }
             case OpCode::OP_JUMP_IF_LOCAL_GE_CONST:
@@ -952,7 +1278,11 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                 uint16_t offset = static_cast<uint16_t>((code[ip + 4] << 8) | code[ip + 5]);
                 ip += 6;
 
-                emitter.cmpStackImm(emitter.getLocalDisp(slot), imm);
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.cmpRegImm(kLocalRegsX64[slot], imm);
+                } else {
+                    emitter.cmpStackImm(emitter.getLocalDisp(slot), imm);
+                }
                 uint8_t cc = 0x8d; // jge
                 if (op == OpCode::OP_JUMP_IF_LOCAL_GT_CONST) cc = 0x8f; // jg
                 else if (op == OpCode::OP_JUMP_IF_LOCAL_LE_CONST) cc = 0x8e; // jle
@@ -967,10 +1297,15 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                 uint16_t offset = static_cast<uint16_t>((code[ip + 2] << 8) | code[ip + 3]);
                 ip += 4;
 
-                emitter.decStack(emitter.getLocalDisp(slot));
-                emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
-                emitter.movRegImm64(X64Emitter::RDX, 0);
-                emitter.cmpRegReg(X64Emitter::RAX, X64Emitter::RDX);
+                if (slot < MAX_REG_LOCALS_X64) {
+                    emitter.decReg(kLocalRegsX64[slot]);
+                    emitter.cmpRegImm(kLocalRegsX64[slot], 0);
+                } else {
+                    emitter.decStack(emitter.getLocalDisp(slot));
+                    emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+                    emitter.movRegImm64(X64Emitter::RDX, 0);
+                    emitter.cmpRegReg(X64Emitter::RAX, X64Emitter::RDX);
+                }
                 size_t fixup = emitter.emitJcc(0x8f); // jg
                 fixups.push_back({ fixup, ip - offset });
                 break;
@@ -981,7 +1316,11 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                 if (evalDepth > 0) {
                     evalDepth--;
                     emitter.movRegStack(X64Emitter::RAX, emitter.getEvalDisp(evalDepth, numLocals));
-                    emitter.addStackReg(emitter.getLocalDisp(slot), X64Emitter::RAX);
+                    if (slot < MAX_REG_LOCALS_X64) {
+                        emitter.addRegReg(kLocalRegsX64[slot], X64Emitter::RAX);
+                    } else {
+                        emitter.addStackReg(emitter.getLocalDisp(slot), X64Emitter::RAX);
+                    }
                 }
                 break;
             }
@@ -1098,6 +1437,20 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                 ip += 2;
                 const auto& c = chunk->constants[idx];
                 int64_t val = (c.isInt() ? c.asInt() : (c.isBool() ? (c.boolVal ? 1 : 0) : 0));
+
+                if (ip + 4 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_SET_LOCAL &&
+                    static_cast<OpCode>(code[ip + 3]) == OpCode::OP_POP) {
+                    uint16_t slot = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    ip += 4;
+                    if (slot < MAX_REG_LOCALS_ARM64) {
+                        emitter.movRegImm64(kLocalRegsArm64[slot], val);
+                    } else {
+                        emitter.movStackImm(emitter.getLocalDisp(slot), val);
+                    }
+                    break;
+                }
+
                 emitter.movRegImm64(Arm64Emitter::X0, val);
                 emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), Arm64Emitter::X0);
                 evalDepth++;
@@ -1123,8 +1476,108 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_GET_LOCAL: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                emitter.movRegStack(Arm64Emitter::X0, emitter.getLocalDisp(slot));
-                emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), Arm64Emitter::X0);
+
+                // Peephole 1: OP_GET_LOCAL slot; OP_RETURN
+                if (ip < code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_RETURN) {
+                    ip++;
+                    if (slot < MAX_REG_LOCALS_ARM64) {
+                        emitter.movRegReg(Arm64Emitter::X0, kLocalRegsArm64[slot]);
+                    } else {
+                        emitter.movRegStack(Arm64Emitter::X0, emitter.getLocalDisp(slot));
+                    }
+                    size_t jmpPos = emitter.emitJmp();
+                    epilogueJumps.push_back(jmpPos);
+                    break;
+                }
+
+                // Peephole 2: OP_GET_LOCAL slot; OP_APPEND_LOCAL targetSlot
+                if (ip + 3 <= code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_APPEND_LOCAL) {
+                    uint16_t targetSlot = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    ip += 3;
+                    Arm64Emitter::Reg srcReg = (slot < MAX_REG_LOCALS_ARM64) ? kLocalRegsArm64[slot] : Arm64Emitter::X9;
+                    if (slot >= MAX_REG_LOCALS_ARM64) {
+                        emitter.movRegStack(Arm64Emitter::X9, emitter.getLocalDisp(slot));
+                    }
+                    if (targetSlot < MAX_REG_LOCALS_ARM64) {
+                        emitter.addRegReg(kLocalRegsArm64[targetSlot], srcReg);
+                    } else {
+                        emitter.addStackReg(emitter.getLocalDisp(targetSlot), srcReg);
+                    }
+                    break;
+                }
+
+                // Peephole 3: OP_GET_LOCAL slotA; OP_GET_LOCAL slotB; <CMP_OP>; OP_JUMP_IF_FALSE offset; OP_POP
+                if (ip + 8 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_GET_LOCAL &&
+                    isCmpOp(static_cast<OpCode>(code[ip + 3])) &&
+                    static_cast<OpCode>(code[ip + 4]) == OpCode::OP_JUMP_IF_FALSE &&
+                    static_cast<OpCode>(code[ip + 7]) == OpCode::OP_POP) {
+                    uint16_t slotB = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    OpCode cmpOp = static_cast<OpCode>(code[ip + 3]);
+                    uint16_t jmpOffset = static_cast<uint16_t>((code[ip + 5] << 8) | code[ip + 6]);
+                    size_t targetBcIp = (ip + 7) + jmpOffset;
+                    ip += 8;
+
+                    Arm64Emitter::Reg regA = (slot < MAX_REG_LOCALS_ARM64) ? kLocalRegsArm64[slot] : Arm64Emitter::X9;
+                    if (slot >= MAX_REG_LOCALS_ARM64) emitter.movRegStack(Arm64Emitter::X9, emitter.getLocalDisp(slot));
+
+                    Arm64Emitter::Reg regB = (slotB < MAX_REG_LOCALS_ARM64) ? kLocalRegsArm64[slotB] : Arm64Emitter::X10;
+                    if (slotB >= MAX_REG_LOCALS_ARM64) emitter.movRegStack(Arm64Emitter::X10, emitter.getLocalDisp(slotB));
+
+                    emitter.cmpRegReg(regA, regB);
+                    Arm64Emitter::Cond invertedCond = Arm64Emitter::Cond::GE; // for OP_LESS
+                    switch (cmpOp) {
+                        case OpCode::OP_LESS: invertedCond = Arm64Emitter::Cond::GE; break;
+                        case OpCode::OP_LESS_EQUAL: invertedCond = Arm64Emitter::Cond::GT; break;
+                        case OpCode::OP_GREATER: invertedCond = Arm64Emitter::Cond::LE; break;
+                        case OpCode::OP_GREATER_EQUAL: invertedCond = Arm64Emitter::Cond::LT; break;
+                        case OpCode::OP_EQUAL: invertedCond = Arm64Emitter::Cond::NE; break;
+                        case OpCode::OP_NOT_EQUAL: invertedCond = Arm64Emitter::Cond::EQ; break;
+                        default: break;
+                    }
+                    size_t fixup = emitter.emitJcc(invertedCond);
+                    fixups.push_back({ fixup, targetBcIp });
+                    break;
+                }
+
+                // Peephole 4: OP_GET_LOCAL slotA; OP_CONSTANT idx; <CMP_OP>; OP_JUMP_IF_FALSE offset; OP_POP
+                if (ip + 8 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_CONSTANT &&
+                    isCmpOp(static_cast<OpCode>(code[ip + 3])) &&
+                    static_cast<OpCode>(code[ip + 4]) == OpCode::OP_JUMP_IF_FALSE &&
+                    static_cast<OpCode>(code[ip + 7]) == OpCode::OP_POP) {
+                    uint16_t cIdx = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    OpCode cmpOp = static_cast<OpCode>(code[ip + 3]);
+                    uint16_t jmpOffset = static_cast<uint16_t>((code[ip + 5] << 8) | code[ip + 6]);
+                    size_t targetBcIp = (ip + 7) + jmpOffset;
+                    int64_t cVal = (cIdx < chunk->constants.size()) ? chunk->constants[cIdx].asInt() : 0;
+                    ip += 8;
+
+                    Arm64Emitter::Reg regA = (slot < MAX_REG_LOCALS_ARM64) ? kLocalRegsArm64[slot] : Arm64Emitter::X9;
+                    if (slot >= MAX_REG_LOCALS_ARM64) emitter.movRegStack(Arm64Emitter::X9, emitter.getLocalDisp(slot));
+
+                    emitter.cmpRegImm(regA, cVal);
+                    Arm64Emitter::Cond invertedCond = Arm64Emitter::Cond::GE;
+                    switch (cmpOp) {
+                        case OpCode::OP_LESS: invertedCond = Arm64Emitter::Cond::GE; break;
+                        case OpCode::OP_LESS_EQUAL: invertedCond = Arm64Emitter::Cond::GT; break;
+                        case OpCode::OP_GREATER: invertedCond = Arm64Emitter::Cond::LE; break;
+                        case OpCode::OP_GREATER_EQUAL: invertedCond = Arm64Emitter::Cond::LT; break;
+                        case OpCode::OP_EQUAL: invertedCond = Arm64Emitter::Cond::NE; break;
+                        case OpCode::OP_NOT_EQUAL: invertedCond = Arm64Emitter::Cond::EQ; break;
+                        default: break;
+                    }
+                    size_t fixup = emitter.emitJcc(invertedCond);
+                    fixups.push_back({ fixup, targetBcIp });
+                    break;
+                }
+
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), kLocalRegsArm64[slot]);
+                } else {
+                    emitter.movRegStack(Arm64Emitter::X0, emitter.getLocalDisp(slot));
+                    emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), Arm64Emitter::X0);
+                }
                 evalDepth++;
                 break;
             }
@@ -1132,8 +1585,13 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
                 if (evalDepth > 0) {
-                    emitter.movRegStack(Arm64Emitter::X0, emitter.getEvalDisp(evalDepth - 1, numLocals));
-                    emitter.movStackReg(emitter.getLocalDisp(slot), Arm64Emitter::X0);
+                    evalDepth--;
+                    if (slot < MAX_REG_LOCALS_ARM64) {
+                        emitter.movRegStack(kLocalRegsArm64[slot], emitter.getEvalDisp(evalDepth, numLocals));
+                    } else {
+                        emitter.movRegStack(Arm64Emitter::X0, emitter.getEvalDisp(evalDepth - 1, numLocals));
+                        emitter.movStackReg(emitter.getLocalDisp(slot), Arm64Emitter::X0);
+                    }
                 }
                 break;
             }
@@ -1261,27 +1719,43 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_INC_LOCAL: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                emitter.incStack(emitter.getLocalDisp(slot));
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.incReg(kLocalRegsArm64[slot]);
+                } else {
+                    emitter.incStack(emitter.getLocalDisp(slot));
+                }
                 break;
             }
             case OpCode::OP_DEC_LOCAL: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                emitter.decStack(emitter.getLocalDisp(slot));
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.decReg(kLocalRegsArm64[slot]);
+                } else {
+                    emitter.decStack(emitter.getLocalDisp(slot));
+                }
                 break;
             }
             case OpCode::OP_ADD_LOCAL_INT: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 int16_t imm = static_cast<int16_t>((code[ip + 2] << 8) | code[ip + 3]);
                 ip += 4;
-                emitter.addStackImm(emitter.getLocalDisp(slot), imm);
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.addRegImm(kLocalRegsArm64[slot], imm);
+                } else {
+                    emitter.addStackImm(emitter.getLocalDisp(slot), imm);
+                }
                 break;
             }
             case OpCode::OP_SUB_LOCAL_INT: {
                 uint16_t slot = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 int16_t imm = static_cast<int16_t>((code[ip + 2] << 8) | code[ip + 3]);
                 ip += 4;
-                emitter.subStackImm(emitter.getLocalDisp(slot), imm);
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.subRegImm(kLocalRegsArm64[slot], imm);
+                } else {
+                    emitter.subStackImm(emitter.getLocalDisp(slot), imm);
+                }
                 break;
             }
             case OpCode::OP_JUMP_IF_LOCAL_GE_CONST:
@@ -1293,7 +1767,11 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                 uint16_t offset = static_cast<uint16_t>((code[ip + 4] << 8) | code[ip + 5]);
                 ip += 6;
 
-                emitter.cmpStackImm(emitter.getLocalDisp(slot), imm);
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.cmpRegImm(kLocalRegsArm64[slot], imm);
+                } else {
+                    emitter.cmpStackImm(emitter.getLocalDisp(slot), imm);
+                }
                 Arm64Emitter::Cond cond = Arm64Emitter::Cond::GE;
                 if (op == OpCode::OP_JUMP_IF_LOCAL_GT_CONST) cond = Arm64Emitter::Cond::GT;
                 else if (op == OpCode::OP_JUMP_IF_LOCAL_LE_CONST) cond = Arm64Emitter::Cond::LE;
@@ -1308,9 +1786,14 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                 uint16_t offset = static_cast<uint16_t>((code[ip + 2] << 8) | code[ip + 3]);
                 ip += 4;
 
-                emitter.decStack(emitter.getLocalDisp(slot));
-                emitter.movRegStack(Arm64Emitter::X0, emitter.getLocalDisp(slot));
-                emitter.cmpRegReg(Arm64Emitter::X0, Arm64Emitter::XZR);
+                if (slot < MAX_REG_LOCALS_ARM64) {
+                    emitter.decReg(kLocalRegsArm64[slot]);
+                    emitter.cmpRegImm(kLocalRegsArm64[slot], 0);
+                } else {
+                    emitter.decStack(emitter.getLocalDisp(slot));
+                    emitter.movRegStack(Arm64Emitter::X0, emitter.getLocalDisp(slot));
+                    emitter.cmpRegReg(Arm64Emitter::X0, Arm64Emitter::XZR);
+                }
                 size_t fixup = emitter.emitJcc(Arm64Emitter::Cond::GT);
                 fixups.push_back({ fixup, ip - offset });
                 break;
@@ -1321,7 +1804,11 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                 if (evalDepth > 0) {
                     evalDepth--;
                     emitter.movRegStack(Arm64Emitter::X0, emitter.getEvalDisp(evalDepth, numLocals));
-                    emitter.addStackReg(emitter.getLocalDisp(slot), Arm64Emitter::X0);
+                    if (slot < MAX_REG_LOCALS_ARM64) {
+                        emitter.addRegReg(kLocalRegsArm64[slot], Arm64Emitter::X0);
+                    } else {
+                        emitter.addStackReg(emitter.getLocalDisp(slot), Arm64Emitter::X0);
+                    }
                 }
                 break;
             }

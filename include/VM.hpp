@@ -26,7 +26,11 @@ public:
     void loadLibrary(const std::string& name);
     bool isLibraryLoaded(const std::string& name) const;
 
+    static void setBenchMode(bool b) { benchMode_ = b; }
+    static bool isBenchMode() { return benchMode_; }
+
 private:
+    inline static bool benchMode_ = false;
     static constexpr size_t STACK_MAX = 262144;
     static constexpr size_t FRAMES_MAX = 8192;
 

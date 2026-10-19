@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     if (arg1 == "-h" || arg1 == "--help" || arg1 == "help") {
-        std::cout << "Usage: fasthonjit [script.fsn] | build <script.fsn> [-o output] [--target <windows|linux|android>] | --jit-info | --version\n";
+        std::cout << "Usage: fasthonjit [script.fsn] [--bench] [--no-jit] | build <script.fsn> [-o output] [--target <windows|linux|android>] | --jit-info | --version\n";
         return 0;
     }
 
@@ -147,6 +147,8 @@ int main(int argc, char* argv[]) {
             enableJit = false;
         } else if (a == "--jit") {
             enableJit = true;
+        } else if (a == "--bench") {
+            VM::setBenchMode(true);
         } else if (a == "run" || a == "--vm" || a == "-v") {
             // verb or flag
         } else if (scriptPath.empty() && !a.empty() && a[0] != '-') {

@@ -100,6 +100,14 @@ public:
     void addStackImm(int stackSlot, int64_t imm);
     void subStackImm(int stackSlot, int64_t imm);
 
+    void incReg(Reg dst);
+    void decReg(Reg dst);
+    void addRegImm(Reg dst, int64_t imm);
+    void subRegImm(Reg dst, int64_t imm);
+    void cmpRegImm(Reg r, int64_t imm);
+    void xorRegReg(Reg dst, Reg src);
+    void movStackImm(int stackSlot, int64_t imm);
+
     void cmpRegReg(Reg r1, Reg r2);
     void cmpStackImm(int stackSlot, int64_t imm);
     void testRegReg(Reg r1, Reg r2);
@@ -220,6 +228,14 @@ public:
     void addStackReg(int stackDisp, Reg src);
     void addStackImm(int stackDisp, int64_t imm);
     void subStackImm(int stackDisp, int64_t imm);
+
+    // Register operations
+    void incReg(Reg dst);
+    void decReg(Reg dst);
+    void addRegImm(Reg dst, int64_t imm);
+    void subRegImm(Reg dst, int64_t imm);
+    void cmpRegImm(Reg r, int64_t imm);
+    void movStackImm(int stackDisp, int64_t imm);
 
     // Comparison & conditions
     void cmpRegReg(Reg r1, Reg r2);

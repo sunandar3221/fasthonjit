@@ -552,6 +552,11 @@ Value VM::run(Chunk* chunk) {
                             typedef int64_t (*Jit5)(int64_t, int64_t, int64_t, int64_t, int64_t);
                             typedef int64_t (*Jit6)(int64_t, int64_t, int64_t, int64_t, int64_t, int64_t);
 
+                            static const char* benchEnv = std::getenv("FASTHON_BENCH");
+                            bool isBench = (benchEnv != nullptr) || benchMode_;
+                            std::chrono::high_resolution_clock::time_point t0, t1;
+                            if (isBench) t0 = std::chrono::high_resolution_clock::now();
+
                             switch (argCount) {
                                 case 0: res = ((Jit0)nextChunk->jitFuncInt)(); break;
                                 case 1: res = ((Jit1)nextChunk->jitFuncInt)(args[0]); break;
@@ -561,6 +566,13 @@ Value VM::run(Chunk* chunk) {
                                 case 5: res = ((Jit5)nextChunk->jitFuncInt)(args[0], args[1], args[2], args[3], args[4]); break;
                                 case 6: res = ((Jit6)nextChunk->jitFuncInt)(args[0], args[1], args[2], args[3], args[4], args[5]); break;
                             }
+
+                            if (isBench) {
+                                t1 = std::chrono::high_resolution_clock::now();
+                                double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+                                std::cout << "[JIT BENCH] " << nextChunk->name << " execution: " << ms << " ms\n";
+                            }
+
                             top -= argCount;
                             *top++ = Value(res);
                             break;
