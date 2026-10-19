@@ -21,13 +21,25 @@ case "$ARCH" in
     ;;
 esac
 
+# Operating system detection
 IS_TERMUX=0
+IS_WINDOWS=0
+
 if [ -n "$PREFIX" ] && [ -d "$PREFIX/bin" ]; then
   IS_TERMUX=1
+  BIN_DIR="$PREFIX/bin"
+elif case "$OS" in mingw*|msys*|cygwin*|windows*) true ;; *) false ;; esac; then
+  IS_WINDOWS=1
+  BIN_DIR="$HOME/AppData/Local/Microsoft/WindowsApps"
+  if [ ! -d "$BIN_DIR" ]; then
+    BIN_DIR="$HOME/bin"
+    mkdir -p "$BIN_DIR"
+  fi
+else
+  BIN_DIR="/usr/local/bin"
 fi
 
 if [ "$IS_TERMUX" -eq 1 ]; then
-  BIN_DIR="$PREFIX/bin"
   if [ "$ARCH_TAG" = "arm64" ]; then
     ASSET_NAME="fasthonjit-android-arm64"
     FALLBACK_ASSET="fasthon-android-arm64"
@@ -38,8 +50,10 @@ if [ "$IS_TERMUX" -eq 1 ]; then
     ASSET_NAME="fasthonjit-linux-x64-static"
     FALLBACK_ASSET="fasthon-linux-x64-static"
   fi
+elif [ "$IS_WINDOWS" -eq 1 ]; then
+  ASSET_NAME="fasthonjit-windows-x64.exe"
+  FALLBACK_ASSET="fasthon-windows-x64.exe"
 else
-  BIN_DIR="/usr/local/bin"
   if [ "$OS" = "linux" ]; then
     if [ "$ARCH_TAG" = "x64" ]; then
       ASSET_NAME="fasthonjit-linux-x64"
@@ -57,9 +71,20 @@ else
   fi
 fi
 
+# Version selection
 SELECTED_VER=""
 if [ -n "$1" ]; then
-  SELECTED_VER="$1"
+  case "$1" in
+    1|v1|v1.0.0|"1.0.0"|legacy)
+      SELECTED_VER="v1.0.0"
+      ;;
+    2|v2|v2.0.0|"2.0.0"|latest)
+      SELECTED_VER="v2.0.0"
+      ;;
+    *)
+      SELECTED_VER="$1"
+      ;;
+  esac
 elif [ -n "$FASTHON_VERSION" ]; then
   SELECTED_VER="$FASTHON_VERSION"
 elif [ -n "$VERSION" ]; then
@@ -68,7 +93,7 @@ elif (exec </dev/tty) 2>/dev/null || [ -t 0 ]; then
   echo "=========================================="
   echo "          Pilih Versi FasthonJIT          "
   echo "=========================================="
-  echo "  [1] FasthonJIT v2.0.0 (Super Duper Cepat JIT Engine) [Default]"
+  echo "  [1] FasthonJIT v2.0.0 (Native JIT Engine x86_64 & ARM64) [Default]"
   echo "  [2] Fasthon v1.0.0 (Versi Lama Tanpa JIT)"
   echo "=========================================="
   USER_CHOICE=""
@@ -81,7 +106,7 @@ elif (exec </dev/tty) 2>/dev/null || [ -t 0 ]; then
     USER_CHOICE="1"
   fi
   case "$USER_CHOICE" in
-    2|v1|v1.0.0|"1.0.0")
+    2|v1|v1.0.0|"1.0.0"|legacy)
       SELECTED_VER="v1.0.0"
       ;;
     *)
@@ -93,13 +118,13 @@ else
 fi
 
 case "$SELECTED_VER" in
-  1|v1|"1.0.0"|v1.0.0)
+  v1|v1.0.0|"1.0.0"|legacy)
     TAG_NAME="v1.0.0"
-    VERSION_DISPLAY="v1.0.0"
+    VERSION_DISPLAY="v1.0.0 (Fasthon Legacy Tanpa JIT)"
     ;;
-  2|v2|"2.0.0"|v2.0.0|latest|"")
+  v2|v2.0.0|"2.0.0"|latest|"")
     TAG_NAME="v2.0.0"
-    VERSION_DISPLAY="v2.0.0 (FasthonJIT Ultra Cepat)"
+    VERSION_DISPLAY="v2.0.0 (FasthonJIT Ultra Cepat Native Engine)"
     ;;
   *)
     TAG_NAME="$SELECTED_VER"
@@ -107,76 +132,95 @@ case "$SELECTED_VER" in
     ;;
 esac
 
-DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG_NAME/$ASSET_NAME"
-FALLBACK_URL="https://github.com/$REPO/releases/latest/download/$ASSET_NAME"
-OLD_URL="https://github.com/$REPO/releases/download/$TAG_NAME/$FALLBACK_ASSET"
-
 echo "=========================================="
 echo "          FasthonJIT Installer            "
 echo "=========================================="
-echo "Selected Version: $VERSION_DISPLAY"
-echo "Detected OS: $OS"
-echo "Detected Arch: $ARCH"
-echo "Install Target: $BIN_DIR/fasthonjit (with 'fasthon' and 'eas' aliases)"
-echo "Downloading $ASSET_NAME ($TAG_NAME)..."
+echo "Versi Dipilih  : $VERSION_DISPLAY"
+echo "Sistem Operasi : $OS"
+echo "Arsitektur CPU : $ARCH ($ARCH_TAG)"
+echo "Target Lokasi  : $BIN_DIR"
+echo "Mengunduh berkas binary..."
 
-TEMP_BIN="$(mktemp)"
+TEMP_BIN="$(mktemp 2>/dev/null || echo "/tmp/fasthonjit-$$")"
 HTTP_OK=0
 
-if command -v curl >/dev/null 2>&1; then
-  if curl -sSL --fail "$DOWNLOAD_URL" -o "$TEMP_BIN"; then
-    HTTP_OK=1
-  elif curl -sSL --fail "$FALLBACK_URL" -o "$TEMP_BIN"; then
-    HTTP_OK=1
-  elif curl -sSL --fail "$OLD_URL" -o "$TEMP_BIN"; then
-    HTTP_OK=1
+try_fetch() {
+  local url="$1"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url" -o "$TEMP_BIN" 2>/dev/null
+    return $?
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q "$url" -O "$TEMP_BIN" 2>/dev/null
+    return $?
   fi
-elif command -v wget >/dev/null 2>&1; then
-  if wget -q "$DOWNLOAD_URL" -O "$TEMP_BIN"; then
-    HTTP_OK=1
-  elif wget -q "$FALLBACK_URL" -O "$TEMP_BIN"; then
-    HTTP_OK=1
-  elif wget -q "$OLD_URL" -O "$TEMP_BIN"; then
-    HTTP_OK=1
+  return 1
+}
+
+# Candidate download URLs in priority order
+URLS=(
+  "https://github.com/$REPO/releases/download/$TAG_NAME/$ASSET_NAME"
+  "https://github.com/$REPO/releases/download/$TAG_NAME/$FALLBACK_ASSET"
+  "https://github.com/$REPO/releases/latest/download/$ASSET_NAME"
+  "https://github.com/$REPO/releases/latest/download/$FALLBACK_ASSET"
+  "https://github.com/sunandar3221/Fasthon/releases/download/$TAG_NAME/$FALLBACK_ASSET"
+  "https://github.com/sunandar3221/Fasthon/releases/latest/download/$FALLBACK_ASSET"
+)
+
+for target_url in "${URLS[@]}"; do
+  if try_fetch "$target_url"; then
+    if [ -s "$TEMP_BIN" ]; then
+      HTTP_OK=1
+      break
+    fi
   fi
-else
-  echo "Error: curl or wget is required to download FasthonJIT."
-  exit 1
-fi
+done
 
 if [ "$HTTP_OK" -ne 1 ]; then
-  echo "Error: Failed to download $ASSET_NAME from GitHub Releases."
+  echo "Error: Gagal mengunduh binary dari GitHub Releases (HTTP 404 atau koneksi terputus)."
+  echo "Silakan unduh manual dari:"
+  echo "https://github.com/$REPO/releases/tag/$TAG_NAME"
   rm -f "$TEMP_BIN"
   exit 1
 fi
 
 chmod +x "$TEMP_BIN"
 
+TARGET_MAIN="fasthonjit"
+TARGET_ALIAS1="fasthon"
+TARGET_ALIAS2="eas"
+
+if [ "$IS_WINDOWS" -eq 1 ]; then
+  TARGET_MAIN="fasthonjit.exe"
+  TARGET_ALIAS1="fasthon.exe"
+  TARGET_ALIAS2="eas.exe"
+fi
+
 if [ -w "$BIN_DIR" ]; then
-  cp "$TEMP_BIN" "$BIN_DIR/fasthonjit"
-  cp "$TEMP_BIN" "$BIN_DIR/fasthon"
-  mv "$TEMP_BIN" "$BIN_DIR/eas"
-  chmod +x "$BIN_DIR/fasthonjit" "$BIN_DIR/fasthon" "$BIN_DIR/eas"
+  cp "$TEMP_BIN" "$BIN_DIR/$TARGET_MAIN"
+  cp "$TEMP_BIN" "$BIN_DIR/$TARGET_ALIAS1"
+  mv "$TEMP_BIN" "$BIN_DIR/$TARGET_ALIAS2"
+  chmod +x "$BIN_DIR/$TARGET_MAIN" "$BIN_DIR/$TARGET_ALIAS1" "$BIN_DIR/$TARGET_ALIAS2" 2>/dev/null || true
 else
   if command -v sudo >/dev/null 2>&1; then
-    sudo cp "$TEMP_BIN" "$BIN_DIR/fasthonjit"
-    sudo cp "$TEMP_BIN" "$BIN_DIR/fasthon"
-    sudo mv "$TEMP_BIN" "$BIN_DIR/eas"
-    sudo chmod +x "$BIN_DIR/fasthonjit" "$BIN_DIR/fasthon" "$BIN_DIR/eas"
+    sudo cp "$TEMP_BIN" "$BIN_DIR/$TARGET_MAIN"
+    sudo cp "$TEMP_BIN" "$BIN_DIR/$TARGET_ALIAS1"
+    sudo mv "$TEMP_BIN" "$BIN_DIR/$TARGET_ALIAS2"
+    sudo chmod +x "$BIN_DIR/$TARGET_MAIN" "$BIN_DIR/$TARGET_ALIAS1" "$BIN_DIR/$TARGET_ALIAS2"
   else
     mkdir -p "$HOME/.local/bin"
-    cp "$TEMP_BIN" "$HOME/.local/bin/fasthonjit"
-    cp "$TEMP_BIN" "$HOME/.local/bin/fasthon"
-    mv "$TEMP_BIN" "$HOME/.local/bin/eas"
-    chmod +x "$HOME/.local/bin/fasthonjit" "$HOME/.local/bin/fasthon" "$HOME/.local/bin/eas"
+    cp "$TEMP_BIN" "$HOME/.local/bin/$TARGET_MAIN"
+    cp "$TEMP_BIN" "$HOME/.local/bin/$TARGET_ALIAS1"
+    mv "$TEMP_BIN" "$HOME/.local/bin/$TARGET_ALIAS2"
+    chmod +x "$HOME/.local/bin/$TARGET_MAIN" "$HOME/.local/bin/$TARGET_ALIAS1" "$HOME/.local/bin/$TARGET_ALIAS2"
     BIN_DIR="$HOME/.local/bin"
-    echo "Installed to $BIN_DIR/fasthonjit. Make sure $BIN_DIR is in your PATH."
+    echo "Dipasang di $BIN_DIR. Pastikan $BIN_DIR ada di PATH Anda."
   fi
 fi
 
 echo "=========================================="
-echo " FasthonJIT successfully installed to $BIN_DIR/fasthonjit"
-echo " Run 'fasthonjit' to enter interactive JIT REPL"
-echo " Run 'fasthonjit <file.fsn>' to run with JIT speed"
-echo " Aliases: 'fasthon' and 'eas' commands are fully supported."
+echo " FasthonJIT berhasil terpasang di: $BIN_DIR/$TARGET_MAIN"
+echo " Perintah untuk REPL interaktif : $TARGET_MAIN"
+echo " Perintah untuk eksekusi skrip  : $TARGET_MAIN <file.fsn>"
+echo " Alias resmi                    : '$TARGET_ALIAS1' dan '$TARGET_ALIAS2'"
+echo " Cek status JIT Engine          : $TARGET_MAIN --jit-info"
 echo "=========================================="

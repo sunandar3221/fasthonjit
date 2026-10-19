@@ -118,16 +118,27 @@ FasthonJIT dapat berjalan secara native dan berkecepatan penuh di smartphone And
 
 ### 🪟 Tutorial Instalasi di Windows
 
-Anda dapat memilih salah satu dari dua metode berikut:
+Anda dapat memilih salah satu metode berikut:
 
-#### Opsi 1: Unduh Cepat via PowerShell 1-Baris (Direkomendasikan)
+#### Opsi 1: Installer Otomatis via PowerShell 1-Baris (Paling Praktis)
 Buka PowerShell (tekan `Win + X` lalu pilih Terminal/PowerShell) dan jalankan:
 ```powershell
-Invoke-WebRequest -Uri "https://github.com/sunandar3221/fasthonjit/releases/latest/download/fasthonjit.exe" -OutFile "$HOME\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
+irm https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.ps1 | iex
 ```
-> ✨ Direktori `WindowsApps` sudah otomatis terdaftar di `PATH` Windows, sehingga Anda dapat langsung mengetik `fasthonjit` atau `fasthonjit.exe` dari folder/terminal mana saja tanpa perlu setting Environment Variables secara manual!
+> ✨ Skrip otomatis mengunduh binary rilis resmi terbaru, membuat alias `fasthon` dan `eas`, serta memasangnya ke direktori yang sudah terdaftar di `PATH` Windows (`WindowsApps`). Langsung bisa dipanggil dari mana saja!
 
-#### Opsi 2: Unduh Manual dari GitHub Releases
+#### Opsi 2: Unduh Cepat via Command Prompt (CMD) atau PowerShell
+Jalankan salah satu baris di bawah ini:
+- **PowerShell**:
+  ```powershell
+  Invoke-WebRequest -Uri "https://github.com/sunandar3221/fasthonjit/releases/latest/download/fasthonjit.exe" -OutFile "$HOME\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
+  ```
+- **Command Prompt (CMD)**:
+  ```cmd
+  curl.exe -sSL https://github.com/sunandar3221/fasthonjit/releases/latest/download/fasthonjit.exe -o "%USERPROFILE%\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
+  ```
+
+#### Opsi 3: Unduh Manual dari GitHub Releases
 1. Kunjungi [Halaman Rilis GitHub FasthonJIT](https://github.com/sunandar3221/fasthonjit/releases/latest).
 2. Unduh berkas **`fasthonjit.exe`** (atau `fasthonjit-windows-x64.exe`).
 3. Simpan berkas di folder pilihan Anda (misal `C:\FasthonJIT\fasthonjit.exe`).
