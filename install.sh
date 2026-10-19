@@ -2,8 +2,27 @@
 set -e
 
 REPO="sunandar3221/fasthonjit"
-OS="${OS:-$(uname -s | tr '[:upper:]' '[:lower:]')}"
-ARCH="${ARCH:-$(uname -m)}"
+
+# Detect OS and Arch robustly
+RAW_OS="$(uname -s 2>/dev/null || echo "$OS")"
+RAW_OS="$(echo "$RAW_OS" | tr '[:upper:]' '[:lower:]')"
+
+case "$RAW_OS" in
+  linux*)
+    OS="linux"
+    ;;
+  darwin*)
+    OS="darwin"
+    ;;
+  mingw*|msys*|cygwin*|windows*)
+    OS="windows"
+    ;;
+  *)
+    OS="$RAW_OS"
+    ;;
+esac
+
+ARCH="${ARCH:-$(uname -m 2>/dev/null || echo "x86_64")}"
 
 case "$ARCH" in
   x86_64|amd64)
@@ -28,7 +47,7 @@ IS_WINDOWS=0
 if [ -n "$PREFIX" ] && [ -d "$PREFIX/bin" ]; then
   IS_TERMUX=1
   BIN_DIR="$PREFIX/bin"
-elif case "$OS" in mingw*|msys*|cygwin*|windows*) true ;; *) false ;; esac; then
+elif [ "$OS" = "windows" ]; then
   IS_WINDOWS=1
   BIN_DIR="$HOME/AppData/Local/Microsoft/WindowsApps"
   if [ ! -d "$BIN_DIR" ]; then
