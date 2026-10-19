@@ -1,6 +1,6 @@
 # FasthonJIT (.fsn)
 
-FasthonJIT adalah bahasa pemrograman modern berkecepatan ultra-tinggi yang didukung mesin Just-In-Time (JIT) Compiler x86_64 native, filosofi sintaks ultra-bersih (ultra-clean syntax), manajemen memori deterministik tanpa Garbage Collector (Zero-Cost RAII), arsitektur multi-tier engine (Ultra Native JIT Compiler, In-Memory VM & AOT Compiler), serta standard library bawaan yang lengkap (*batteries-included*).
+FasthonJIT adalah bahasa pemrograman modern berkecepatan ultra-tinggi yang didukung mesin Just-In-Time (JIT) Compiler native untuk arsitektur **x86_64** dan **ARM64 (AArch64)**, dukungan platform **ARM32 (armv7l)** dalam mode VM berkinerja tinggi, filosofi sintaks ultra-bersih (ultra-clean syntax), manajemen memori deterministik tanpa Garbage Collector (Zero-Cost RAII), arsitektur multi-tier engine (Ultra Native JIT Compiler, In-Memory VM & AOT Compiler), serta standard library bawaan yang lengkap (*batteries-included*).
 
 Proyek ini dilisensikan di bawah **Mozilla Public License 2.0 (MPL-2.0)**.
 
@@ -29,8 +29,8 @@ Proyek ini dilisensikan di bawah **Mozilla Public License 2.0 (MPL-2.0)**.
   - Tanpa deklarasi tipe data wajib yang bertele-tele
   - Blok kode berbasis baris dan indentasi alami (dengan opsi penutup blok `end`)
 - **Arsitektur Multi-Tier Execution & Native JIT Engine**:
-  - **Ultra-Fast In-Memory JIT Compiler (Default CLI)**: Mengompilasi bytecode secara real-time langsung ke instruksi mesin x86_64 murni di dalam executable memory (`PAGE_EXECUTE_READWRITE` / `mmap PROT_EXEC`). Komputasi intensif, perulangan, dan pemanggilan rekursif dieksekusi seketika pada kecepatan *bare-metal machine code* tanpa interpretasi virtual machine.
-  - **In-Memory Flat-Stack VM Fallback**: Menyediakan eksekusi instan (0 ms compile time) untuk dynamic constructs tanpa membuat berkas cache di disk (*zero storage bloat*).
+  - **Ultra-Fast In-Memory JIT Compiler (x86_64 & ARM64)**: Mengompilasi bytecode secara real-time langsung ke instruksi mesin native murni (x86_64 atau AArch64) di dalam executable memory (`PAGE_EXECUTE_READWRITE` / `mmap PROT_EXEC`). Komputasi intensif, perulangan, dan pemanggilan rekursif dieksekusi seketika pada kecepatan *bare-metal machine code* tanpa interpretasi virtual machine.
+  - **In-Memory Flat-Stack VM Fallback & ARM32 Support**: Menyediakan eksekusi instan (0 ms compile time) untuk dynamic constructs tanpa membuat berkas cache di disk (*zero storage bloat*). Pada arsitektur 32-bit seperti **ARM32 (armv7l / armeabi-v7a)**, FasthonJIT berjalan mulus dalam mode VM interpreter teroptimasi tinggi tanpa overhead alokasi GC.
   - **Ahead-Of-Time (AOT) Compiler Backend (`fasthonjit build`)**: Mengompilasi skrip `.fsn` langsung menjadi berkas binary native mandiri (`.exe` di Windows, ELF di Linux/Android) menggunakan optimasi agresif `-O3 -march=native` tanpa dependensi runtime.
 - **Manajemen Memori Deterministik (Zero GC Overhead)**:
   - Menggunakan model Zero-Cost RAII sehingga alokasi dan dealokasi memori terjadi seketika tanpa jeda *stop-the-world garbage collection*.
@@ -44,7 +44,7 @@ Proyek ini dilisensikan di bawah **Mozilla Public License 2.0 (MPL-2.0)**.
 
 ## 2. Tutorial & Panduan Instalasi
 
-Seluruh berkas binary resmi FasthonJIT otomatis dikompilasi oleh **GitHub Actions CI/CD** untuk multi-platform (**Linux x86_64**, **Linux ARM64**, **Android Termux ARM64**, dan **Windows x64**). Anda **tidak perlu repot mengompilasi manual**.
+Seluruh berkas binary resmi FasthonJIT otomatis dikompilasi oleh **GitHub Actions CI/CD** untuk multi-platform (**Linux x86_64**, **Linux ARM64**, **Linux ARM32**, **Android Termux ARM64**, **Android Termux ARM32**, dan **Windows x64**). Anda **tidak perlu repot mengompilasi manual**.
 
 ---
 
@@ -57,13 +57,13 @@ Seluruh berkas binary resmi FasthonJIT otomatis dikompilasi oleh **GitHub Action
    ```
    > 💡 **Pilihan Versi Interaktif & Otomatis**:
    > - **Mode Interaktif**: Jika dijalankan langsung di terminal, installer akan menampilkan menu pilihan:
-   >   - Ketik `1` untuk **FasthonJIT v2.0.0** (Terbaru & Direkomendasikan - dengan JIT Engine bawaan).
+   >   - Ketik `1` untuk **FasthonJIT v2.0.0** (Terbaru & Direkomendasikan - JIT aktif di x86_64 & ARM64).
    >   - Ketik `2` untuk **Fasthon v1.0.0** (Versi Stabil Lama).
    > - **Otomatis Tanpa Tanya (Non-Interaktif)**:
    >   - Pasang Versi 2: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 2`
    >   - Pasang Versi 1: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 1`
    > - **Fitur Installer**:
-   >   - Mendeteksi arsitektur CPU secara otomatis (`x86_64` atau `ARM64/aarch64`).
+   >   - Mendeteksi arsitektur CPU secara otomatis (`x86_64`, `ARM64/aarch64`, atau `ARM32/armv7`).
    >   - Mengunduh binary prebuilt teroptimasi dari GitHub Releases.
    >   - Memasang binary langsung ke `/usr/local/bin/fasthonjit` (serta symlink alias `fasthon` dan `eas`).
 
@@ -86,7 +86,7 @@ Seluruh berkas binary resmi FasthonJIT otomatis dikompilasi oleh **GitHub Action
 
 ### 📱 Tutorial Instalasi di Android (Termux)
 
-FasthonJIT dapat berjalan secara native dan berkecepatan penuh di smartphone Android Anda menggunakan aplikasi **Termux**:
+FasthonJIT dapat berjalan secara native dan berkecepatan penuh di smartphone Android Anda menggunakan aplikasi **Termux** (mendukung perangkat ARM64 maupun ARM32):
 
 1. **Buka Aplikasi Termux** di Android Anda.
 2. **Siapkan Paket Pendukung**:
@@ -98,8 +98,8 @@ FasthonJIT dapat berjalan secara native dan berkecepatan penuh di smartphone And
    curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash
    ```
    > 💡 **Kelebihan di Termux:**
+   > - **Dukungan Arsitektur Otomatis**: Installer otomatis mengunduh biner native Android Bionic ARM64 (`fasthonjit-android-arm64` dengan JIT Engine aktif) pada HP 64-bit, atau ARM32 (`fasthonjit-android-armv7` dalam mode VM) pada HP 32-bit.
    > - **Pilihan Versi**: Anda dapat memilih **Versi 2** (v2.0.0 terbaru dengan FasthonJIT) atau **Versi 1** (v1.0.0) saat installer berjalan, atau langsung memasang versi 2 via `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 2`.
-   > - Mengunduh binary native Android Bionic (`fasthonjit-android-arm64`) yang dikompilasi langsung menggunakan Google Android NDK Clang.
    > - Otomatis terpasang ke `$PREFIX/bin/fasthonjit` (serta alias `fasthon` dan `eas`) sehingga tidak butuh akses root/sudo sama sekali.
 
 4. **Verifikasi Instalasi**:

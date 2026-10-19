@@ -12,6 +12,9 @@ case "$ARCH" in
   aarch64|arm64)
     ARCH_TAG="arm64"
     ;;
+  armv7*|armv8l|armv6*|armhf|arm)
+    ARCH_TAG="armv7"
+    ;;
   *)
     echo "Unsupported architecture: $ARCH"
     exit 1
@@ -28,6 +31,9 @@ if [ "$IS_TERMUX" -eq 1 ]; then
   if [ "$ARCH_TAG" = "arm64" ]; then
     ASSET_NAME="fasthonjit-android-arm64"
     FALLBACK_ASSET="fasthon-android-arm64"
+  elif [ "$ARCH_TAG" = "armv7" ]; then
+    ASSET_NAME="fasthonjit-android-armv7"
+    FALLBACK_ASSET="fasthon-android-armv7"
   else
     ASSET_NAME="fasthonjit-linux-x64-static"
     FALLBACK_ASSET="fasthon-linux-x64-static"
@@ -38,9 +44,12 @@ else
     if [ "$ARCH_TAG" = "x64" ]; then
       ASSET_NAME="fasthonjit-linux-x64"
       FALLBACK_ASSET="fasthon-linux-x64"
-    else
+    elif [ "$ARCH_TAG" = "arm64" ]; then
       ASSET_NAME="fasthonjit-linux-arm64-static"
       FALLBACK_ASSET="fasthon-linux-arm64-static"
+    elif [ "$ARCH_TAG" = "armv7" ]; then
+      ASSET_NAME="fasthonjit-linux-armv7-static"
+      FALLBACK_ASSET="fasthon-linux-armv7-static"
     fi
   else
     echo "Unsupported operating system: $OS"

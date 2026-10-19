@@ -59,7 +59,7 @@ jobs:
       - name: Install Toolchains
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential g++ g++-aarch64-linux-gnu
+          sudo apt-get install -y build-essential g++ g++-aarch64-linux-gnu g++-arm-linux-gnueabihf
 
       - name: Compile Linux x86_64 Binaries
         run: |
@@ -78,16 +78,32 @@ jobs:
           cp fasthonjit-linux-arm64-static fasthon-linux-arm64-static
           cp fasthonjit-linux-arm64-static eas-linux-arm64-static
 
-      - name: Compile Android Termux ARM64 Native Binary
+      - name: Compile Linux ARM32 (armv7) Static Binary
+        run: |
+          arm-linux-gnueabihf-g++ -std=c++20 -O3 -static src/*.cpp -Iinclude -o fasthonjit-linux-armv7-static
+          chmod +x fasthonjit-linux-armv7-static
+          cp fasthonjit-linux-armv7-static fasthon-linux-armv7-static
+          cp fasthonjit-linux-armv7-static eas-linux-armv7-static
+
+      - name: Compile Android Termux ARM64 & ARM32 Native Binaries
         run: |
           NDK_DIR=$(find /usr/local/lib/android/sdk/ndk -maxdepth 1 -mindepth 1 | sort -V | tail -n 1)
           echo "Found Android NDK at: $NDK_DIR"
+          # Android ARM64 (with ARM64 JIT engine)
           $NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang++ -std=c++20 -O3 -static-libstdc++ src/*.cpp -Iinclude -o fasthonjit-android-arm64
           chmod +x fasthonjit-android-arm64
           cp fasthonjit-android-arm64 fasthon-android-arm64
           cp fasthonjit-android-arm64 eas-android-arm64
-          echo "Verifying shared library dependencies of fasthonjit-android-arm64:"
+
+          # Android ARM32 (armeabi-v7a - highly optimized VM mode)
+          $NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi24-clang++ -std=c++20 -O3 -static-libstdc++ src/*.cpp -Iinclude -o fasthonjit-android-armv7
+          chmod +x fasthonjit-android-armv7
+          cp fasthonjit-android-armv7 fasthon-android-armv7
+          cp fasthonjit-android-armv7 eas-android-armv7
+
+          echo "Verifying shared library dependencies:"
           readelf -d fasthonjit-android-arm64 | grep NEEDED || true
+          readelf -d fasthonjit-android-armv7 | grep NEEDED || true
 
       - name: Test fasthonjit build for Linux and Android
         run: |
@@ -109,15 +125,21 @@ jobs:
             fasthonjit-linux-x64
             fasthonjit-linux-x64-static
             fasthonjit-linux-arm64-static
+            fasthonjit-linux-armv7-static
             fasthonjit-android-arm64
+            fasthonjit-android-armv7
             fasthon-linux-x64
             fasthon-linux-x64-static
             fasthon-linux-arm64-static
+            fasthon-linux-armv7-static
             fasthon-android-arm64
+            fasthon-android-armv7
             eas-linux-x64
             eas-linux-x64-static
             eas-linux-arm64-static
+            eas-linux-armv7-static
             eas-android-arm64
+            eas-android-armv7
 
   release:
     name: Publish Release Assets

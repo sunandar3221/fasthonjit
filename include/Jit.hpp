@@ -11,6 +11,8 @@ class JitEngine;
 
 enum class JitArch {
     X86_64,
+    ARM64,
+    ARM32_VM,
     PORTABLE
 };
 
@@ -35,8 +37,15 @@ private:
 
 #if defined(__x86_64__) || defined(_M_X64)
 #define FASTHON_JIT_TARGET_X64 1
+#elif defined(__aarch64__) || defined(_M_ARM64)
+#define FASTHON_JIT_TARGET_ARM64 1
+#elif defined(__arm__) || defined(_M_ARM)
+#define FASTHON_TARGET_ARM32 1
 #endif
 
+// ==========================================
+// x86_64 JIT Emitter
+// ==========================================
 class X64Emitter {
 public:
     enum Reg : uint8_t {
@@ -118,10 +127,131 @@ private:
     void emitDisp(int32_t disp);
 };
 
+// ==========================================
+// AArch64 (ARM64) JIT Emitter
+// ==========================================
+class Arm64Emitter {
+public:
+    enum Reg : uint8_t {
+        X0 = 0,
+        X1 = 1,
+        X2 = 2,
+        X3 = 3,
+        X4 = 4,
+        X5 = 5,
+        X6 = 6,
+        X7 = 7,
+        X8 = 8,
+        X9 = 9,
+        X10 = 10,
+        X11 = 11,
+        X12 = 12,
+        X13 = 13,
+        X14 = 14,
+        X15 = 15,
+        X16 = 16,
+        X17 = 17,
+        X18 = 18,
+        X19 = 19,
+        X20 = 20,
+        X21 = 21,
+        X22 = 22,
+        X23 = 23,
+        X24 = 24,
+        X25 = 25,
+        X26 = 26,
+        X27 = 27,
+        X28 = 28,
+        X29 = 29, // Frame Pointer (FP)
+        X30 = 30, // Link Register (LR)
+        SP  = 31, // Stack Pointer
+        XZR = 31  // Zero Register
+    };
+
+    enum class Cond : uint8_t {
+        EQ = 0x0,
+        NE = 0x1,
+        CS = 0x2,
+        CC = 0x3,
+        MI = 0x4,
+        PL = 0x5,
+        VS = 0x6,
+        VC = 0x7,
+        HI = 0x8,
+        LS = 0x9,
+        GE = 0xa,
+        LT = 0xb,
+        GT = 0xc,
+        LE = 0xd,
+        AL = 0xe,
+        NV = 0xf
+    };
+
+    Arm64Emitter();
+
+    void emit32(uint32_t val);
+    size_t currentOffset() const { return buffer_.size(); }
+    const std::vector<uint8_t>& getCode() const { return buffer_; }
+
+    void patchBranch(size_t branchOffset, size_t targetOffset);
+
+    // Frame setup and teardown
+    void emitPrologue(int numLocals, int evalMax, int arity);
+    void emitEpilogue();
+
+    // Data movement
+    void movRegImm64(Reg dst, int64_t imm);
+    void movRegReg(Reg dst, Reg src);
+    void movStackReg(int stackDisp, Reg src);
+    void movRegStack(Reg dst, int stackDisp);
+
+    // Arithmetic
+    void addRegReg(Reg dst, Reg src);
+    void subRegReg(Reg dst, Reg src);
+    void imulRegReg(Reg dst, Reg src);
+    void idivReg(Reg dst, Reg divisor);
+    void imodReg(Reg dst, Reg divisor);
+    void negReg(Reg dst);
+    void notReg(Reg dst);
+
+    // In-place stack manipulation
+    void incStack(int stackDisp);
+    void decStack(int stackDisp);
+    void addStackReg(int stackDisp, Reg src);
+    void addStackImm(int stackDisp, int64_t imm);
+    void subStackImm(int stackDisp, int64_t imm);
+
+    // Comparison & conditions
+    void cmpRegReg(Reg r1, Reg r2);
+    void cmpStackImm(int stackDisp, int64_t imm);
+    void testRegReg(Reg r1, Reg r2);
+    void setccReg(Cond cond, Reg dst);
+    void movzxReg8(Reg dst);
+
+    // Branches and jumps
+    size_t emitJmp();
+    size_t emitJcc(Cond cond);
+    void emitCallReg(Reg targetReg);
+    void emitRet();
+
+    int calculateFrameSize(int numLocals, int evalMax) const;
+    int getLocalDisp(int slot) const;
+    int getEvalDisp(int depth, int numLocals) const;
+
+private:
+    std::vector<uint8_t> buffer_;
+};
+
+// ==========================================
+// JitCompiler & JitEngine
+// ==========================================
 class JitCompiler {
 public:
     static bool canCompileInt(Chunk* chunk);
     static bool compileChunk(Chunk* chunk, JitEngine* engine);
+
+    static bool compileChunkX64(Chunk* chunk, JitEngine* engine);
+    static bool compileChunkArm64(Chunk* chunk, JitEngine* engine);
 };
 
 class JitEngine {
