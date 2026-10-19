@@ -123,16 +123,54 @@ void Lexer::handleIndentation(std::vector<Token>& /*tokens*/) {
     atLineStart_ = false;
 }
 
-Token Lexer::readString(char quoteChar) {
+Token Lexer::readString(char quoteChar, bool isMultiline) {
     int startLine = line_;
-    int startCol = column_ - 1;
+    int startCol = column_ - (isMultiline ? 3 : 1);
     std::string val;
 
-    while (!isAtEnd() && peek() != quoteChar) {
-        if (peek() == '\n') {
-            line_++;
-            column_ = 1;
+    while (!isAtEnd()) {
+        if (isMultiline) {
+            if (peek() == quoteChar && peekNext() == quoteChar && cursor_ + 2 < source_.size() && source_[cursor_ + 2] == quoteChar) {
+                advance(); advance(); advance();
+                return Token(TokenType::STRING, val, startLine, startCol);
+            }
+            if (peek() == '\n') {
+                line_++;
+                column_ = 0;
+            }
+        } else {
+            // Check closing quote: ASCII quote or matching Unicode smart quotes
+            if (peek() == quoteChar) {
+                advance();
+                return Token(TokenType::STRING, val, startLine, startCol);
+            }
+            if (quoteChar == '"' && static_cast<unsigned char>(peek()) == 0xE2 && cursor_ + 2 < source_.size() &&
+                static_cast<unsigned char>(source_[cursor_ + 1]) == 0x80 &&
+                (static_cast<unsigned char>(source_[cursor_ + 2]) == 0x9C || static_cast<unsigned char>(source_[cursor_ + 2]) == 0x9D)) {
+                advance(); advance(); advance();
+                return Token(TokenType::STRING, val, startLine, startCol);
+            }
+            if (quoteChar == '\'' && static_cast<unsigned char>(peek()) == 0xE2 && cursor_ + 2 < source_.size() &&
+                static_cast<unsigned char>(source_[cursor_ + 1]) == 0x80 &&
+                (static_cast<unsigned char>(source_[cursor_ + 2]) == 0x98 || static_cast<unsigned char>(source_[cursor_ + 2]) == 0x99)) {
+                advance(); advance(); advance();
+                return Token(TokenType::STRING, val, startLine, startCol);
+            }
+
+            // A single-line string literal must not span across newlines silently
+            if (peek() == '\n' || peek() == '\r') {
+                int span = std::max(1, static_cast<int>(val.size() + 1));
+                std::string qStr = (quoteChar == '\'') ? "'" : "\"";
+                errors_.push_back(Diagnostic::format(
+                    "SyntaxError",
+                    "String literal tidak ditutup (unterminated string literal).",
+                    startLine, startCol, span, "",
+                    "Pastikan menambahkan tanda kutip penutup '" + qStr + "' sebelum baris baru."
+                ));
+                return Token(TokenType::STRING, val, startLine, startCol);
+            }
         }
+
         if (peek() == '\\') {
             advance();
             if (!isAtEnd()) {
@@ -155,16 +193,16 @@ Token Lexer::readString(char quoteChar) {
         }
     }
 
-    if (!isAtEnd() && peek() == quoteChar) {
-        advance();
-    } else {
-        int span = std::max(1, static_cast<int>(val.size() + 1));
-        std::string qStr = (quoteChar == '\'') ? "'" : "\"";
-        errors_.push_back(Diagnostic::format("SyntaxError", "String literal tidak ditutup (unterminated string literal).", startLine, startCol, span, "", "Pastikan menambahkan tanda kutip penutup '" + qStr + "' di akhir teks string."));
-    }
+    int span = std::max(1, static_cast<int>(val.size() + 1));
+    std::string qStr = (quoteChar == '\'') ? "'" : "\"";
+    errors_.push_back(Diagnostic::format(
+        "SyntaxError",
+        "String literal tidak ditutup (unterminated string literal).",
+        startLine, startCol, span, "",
+        "Pastikan menambahkan tanda kutip penutup '" + qStr + "' di akhir teks string."
+    ));
 
-    Token tok(TokenType::STRING, val, startLine, startCol);
-    return tok;
+    return Token(TokenType::STRING, val, startLine, startCol);
 }
 
 Token Lexer::readNumber() {
@@ -200,19 +238,23 @@ Token Lexer::readIdentifier() {
     int startLine = line_;
     int startCol = column_ - 1;
     size_t startPos = cursor_ - 1;
+    bool hasDollar = (source_[startPos] == '$');
 
     while (!isAtEnd()) {
         char c = peek();
-        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_') {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '_' || c == '$') {
             advance();
         } else {
             break;
         }
     }
 
-    std::string lexeme = source_.substr(startPos, cursor_ - startPos);
+    size_t nameStart = (hasDollar && (startPos + 1 < cursor_)) ? (startPos + 1) : startPos;
+    size_t nameLen = (hasDollar && (startPos + 1 < cursor_)) ? (cursor_ - startPos - 1) : (cursor_ - startPos);
+    std::string lexeme = source_.substr(nameStart, nameLen);
+
     auto it = keywords_.find(lexeme);
-    if (it != keywords_.end()) {
+    if (it != keywords_.end() && !hasDollar) {
         return Token(it->second, lexeme, startLine, startCol);
     }
     return Token(TokenType::IDENTIFIER, lexeme, startLine, startCol);
@@ -303,13 +345,42 @@ std::vector<Token> Lexer::tokenize() {
         }
 
         if (c == '"' || c == '\'') {
-            tokens.push_back(readString(c));
+            if (peek() == c && peekNext() == c) {
+                advance(); advance();
+                tokens.push_back(readString(c, true));
+            } else {
+                tokens.push_back(readString(c, false));
+            }
             continue;
+        }
+
+        // Support UTF-8 smart quotes (“ ” ‘ ’)
+        if (static_cast<unsigned char>(c) == 0xE2 && cursor_ + 1 < source_.size() &&
+            static_cast<unsigned char>(source_[cursor_]) == 0x80) {
+            unsigned char nextByte = static_cast<unsigned char>(source_[cursor_ + 1]);
+            if (nextByte == 0x9C || nextByte == 0x9D) { // “ or ”
+                cursor_ += 2;
+                column_ += 2;
+                tokens.push_back(readString('"', false));
+                continue;
+            } else if (nextByte == 0x98 || nextByte == 0x99) { // ‘ or ’
+                cursor_ += 2;
+                column_ += 2;
+                tokens.push_back(readString('\'', false));
+                continue;
+            }
         }
 
         if (std::isdigit(static_cast<unsigned char>(c))) {
             tokens.push_back(readNumber());
             continue;
+        }
+
+        if (c == '$') {
+            if (!isAtEnd() && (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '_')) {
+                tokens.push_back(readIdentifier());
+                continue;
+            }
         }
 
         if (std::isalpha(static_cast<unsigned char>(c)) || c == '_') {

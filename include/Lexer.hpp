@@ -30,7 +30,7 @@ private:
     char advance();
     bool match(char expected);
     void handleIndentation(std::vector<Token>& tokens);
-    Token readString(char quoteChar = '"');
+    Token readString(char quoteChar = '"', bool isMultiline = false);
     Token readNumber();
     Token readIdentifier();
 };
