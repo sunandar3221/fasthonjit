@@ -121,6 +121,9 @@ public:
     size_t emitJmp();
     size_t emitJcc(uint8_t condCode);
     void emitCallReg(Reg targetReg);
+    void emitCallDirect(int32_t rel32);
+    void patchCall(size_t callOffset, size_t targetOffset);
+    void emitAlign(int alignment);
     void emitRet();
 
     int calculateFrameSize(int numLocals, int evalMax) const;
@@ -248,6 +251,9 @@ public:
     size_t emitJmp();
     size_t emitJcc(Cond cond);
     void emitCallReg(Reg targetReg);
+    void emitCallDirect(int32_t rel26);
+    void patchCall(size_t callOffset, size_t targetOffset);
+    void emitAlign(int alignment);
     void emitRet();
 
     int calculateFrameSize(int numLocals, int evalMax) const;

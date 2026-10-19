@@ -108,7 +108,10 @@ int X64Emitter::calculateFrameSize(int numLocals, int evalMax) const {
 #ifdef _WIN32
     bytes += 32; // Shadow space for Windows x64 ABI
 #endif
-    return ((bytes + 15) / 16) * 16;
+    // We pushed 6 registers (rbp, rbx, r12, r13, r14, r15) = 48 bytes.
+    // Plus 8-byte return address pushed by caller's call = 56 bytes.
+    // (56 + frameSize) % 16 == 0 requires frameSize % 16 == 8.
+    return ((bytes + 15) / 16) * 16 + 8;
 }
 
 int X64Emitter::getLocalDisp(int slot) const {
@@ -285,15 +288,11 @@ void X64Emitter::subStackImm(int stackSlot, int64_t imm) {
 }
 
 void X64Emitter::incReg(Reg dst) {
-    emitRex(true, false, false, dst >= 8);
-    emit8(0xff);
-    emitModRM(3, 0, dst & 7);
+    addRegImm(dst, 1);
 }
 
 void X64Emitter::decReg(Reg dst) {
-    emitRex(true, false, false, dst >= 8);
-    emit8(0xff);
-    emitModRM(3, 1, dst & 7);
+    subRegImm(dst, 1);
 }
 
 void X64Emitter::xorRegReg(Reg dst, Reg src) {
@@ -426,6 +425,38 @@ void X64Emitter::emitCallReg(Reg targetReg) {
     emitRex(false, false, false, targetReg >= 8);
     emit8(0xff);
     emitModRM(3, 2, targetReg & 7);
+}
+
+void X64Emitter::emitCallDirect(int32_t rel32) {
+    emit8(0xe8);
+    emit32(static_cast<uint32_t>(rel32));
+}
+
+void X64Emitter::patchCall(size_t callOffset, size_t targetOffset) {
+    int32_t rel32 = static_cast<int32_t>(targetOffset) - static_cast<int32_t>(callOffset + 5);
+    patch32(callOffset + 1, rel32);
+}
+
+void X64Emitter::emitAlign(int alignment) {
+    if (alignment <= 1) return;
+    while (buffer_.size() % alignment != 0) {
+        size_t rem = alignment - (buffer_.size() % alignment);
+        if (rem >= 8) {
+            emit8(0x0f); emit8(0x1f); emit8(0x84); emit8(0x00);
+            emit8(0x00); emit8(0x00); emit8(0x00); emit8(0x00);
+        } else if (rem >= 7) {
+            emit8(0x0f); emit8(0x1f); emit8(0x80); emit8(0x00);
+            emit8(0x00); emit8(0x00); emit8(0x00);
+        } else if (rem >= 4) {
+            emit8(0x0f); emit8(0x1f); emit8(0x40); emit8(0x00);
+        } else if (rem >= 3) {
+            emit8(0x0f); emit8(0x1f); emit8(0x00);
+        } else if (rem >= 2) {
+            emit8(0x66); emit8(0x90);
+        } else {
+            emit8(0x90);
+        }
+    }
 }
 
 void X64Emitter::emitRet() {
@@ -762,6 +793,27 @@ void Arm64Emitter::emitCallReg(Reg targetReg) {
     emit32(0xd63f0000 | ((targetReg & 0x1f) << 5));
 }
 
+void Arm64Emitter::emitCallDirect(int32_t rel26) {
+    // bl #rel26
+    emit32(0x94000000 | (static_cast<uint32_t>(rel26) & 0x03ffffff));
+}
+
+void Arm64Emitter::patchCall(size_t callOffset, size_t targetOffset) {
+    int64_t rel = static_cast<int64_t>(targetOffset) - static_cast<int64_t>(callOffset);
+    int32_t wordRel = static_cast<int32_t>(rel >> 2);
+    uint32_t inst = 0x94000000 | (static_cast<uint32_t>(wordRel) & 0x03ffffff);
+    buffer_[callOffset]     = static_cast<uint8_t>(inst & 0xff);
+    buffer_[callOffset + 1] = static_cast<uint8_t>((inst >> 8) & 0xff);
+    buffer_[callOffset + 2] = static_cast<uint8_t>((inst >> 16) & 0xff);
+    buffer_[callOffset + 3] = static_cast<uint8_t>((inst >> 24) & 0xff);
+}
+
+void Arm64Emitter::emitAlign(int alignment) {
+    while (buffer_.size() % alignment != 0) {
+        emit32(0xd503201f); // nop
+    }
+}
+
 void Arm64Emitter::emitRet() {
     // ret
     emit32(0xd65f03c0);
@@ -922,6 +974,17 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
     std::vector<Fixup> fixups;
     std::vector<size_t> epilogueJumps;
 
+    struct LoopHeaderInfo {
+        size_t bodyNativeOffset = 0;
+        uint16_t slotA = 0;
+        uint16_t slotB = 0;
+        bool isConst = false;
+        int64_t constVal = 0;
+        OpCode cmpOp = OpCode::OP_LESS;
+    };
+    std::unordered_map<size_t, LoopHeaderInfo> loopHeaders;
+    std::vector<size_t> directCallFixups;
+
     int evalDepth = 0;
     const auto& code = chunk->code;
     size_t ip = 0;
@@ -1000,6 +1063,23 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                     break;
                 }
 
+                // Peephole 1b: OP_GET_LOCAL slot; OP_JUMP target -> if target is OP_RETURN
+                if (ip + 3 <= code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_JUMP) {
+                    uint16_t offset = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    size_t targetIp = (ip + 3) + offset;
+                    if (targetIp < code.size() && static_cast<OpCode>(code[targetIp]) == OpCode::OP_RETURN) {
+                        ip += 3;
+                        if (slot < MAX_REG_LOCALS_X64) {
+                            emitter.movRegReg(X64Emitter::RAX, kLocalRegsX64[slot]);
+                        } else {
+                            emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(slot));
+                        }
+                        size_t jmpPos = emitter.emitJmp();
+                        epilogueJumps.push_back(jmpPos);
+                        break;
+                    }
+                }
+
                 // Peephole 2: OP_GET_LOCAL slot; OP_APPEND_LOCAL targetSlot
                 if (ip + 3 <= code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_APPEND_LOCAL) {
                     uint16_t targetSlot = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
@@ -1047,6 +1127,15 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                     }
                     size_t fixup = emitter.emitJcc(invertedCc);
                     fixups.push_back({ fixup, targetBcIp });
+
+                    emitter.emitAlign(16);
+                    LoopHeaderInfo info;
+                    info.bodyNativeOffset = emitter.currentOffset();
+                    info.isConst = false;
+                    info.slotA = slot;
+                    info.slotB = slotB;
+                    info.cmpOp = cmpOp;
+                    loopHeaders[curBcIp] = info;
                     break;
                 }
 
@@ -1079,7 +1168,91 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                     }
                     size_t fixup = emitter.emitJcc(invertedCc);
                     fixups.push_back({ fixup, targetBcIp });
+
+                    emitter.emitAlign(16);
+                    LoopHeaderInfo info;
+                    info.bodyNativeOffset = emitter.currentOffset();
+                    info.isConst = true;
+                    info.slotA = slot;
+                    info.constVal = cVal;
+                    info.cmpOp = cmpOp;
+                    loopHeaders[curBcIp] = info;
                     break;
+                }
+
+                // Peephole 5: OP_GET_LOCAL slot; OP_CONSTANT idx; OP_SUB/OP_ADD; OP_CALL fnIdx, 1
+                if (ip + 8 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_CONSTANT &&
+                    (static_cast<OpCode>(code[ip + 3]) == OpCode::OP_SUB || static_cast<OpCode>(code[ip + 3]) == OpCode::OP_ADD) &&
+                    static_cast<OpCode>(code[ip + 4]) == OpCode::OP_CALL &&
+                    code[ip + 7] == 1) {
+                    uint16_t cIdx = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    OpCode mathOp = static_cast<OpCode>(code[ip + 3]);
+                    uint16_t fnIdx = static_cast<uint16_t>((code[ip + 5] << 8) | code[ip + 6]);
+
+                    Chunk* targetChunk = (fnIdx < chunk->cachedChunks.size()) ? chunk->cachedChunks[fnIdx] : nullptr;
+                    if (targetChunk && cIdx < chunk->constants.size() && chunk->constants[cIdx].isInt()) {
+                        int64_t cVal = chunk->constants[cIdx].asInt();
+                        ip += 8;
+
+                        if (slot < MAX_REG_LOCALS_X64) {
+                            emitter.movRegReg(argRegs[0], kLocalRegsX64[slot]);
+                        } else {
+                            emitter.movRegStack(argRegs[0], emitter.getLocalDisp(slot));
+                        }
+
+                        if (mathOp == OpCode::OP_SUB) {
+                            emitter.subRegImm(argRegs[0], cVal);
+                        } else {
+                            emitter.addRegImm(argRegs[0], cVal);
+                        }
+
+                        if (targetChunk == chunk) {
+                            size_t callPos = emitter.currentOffset();
+                            emitter.emitCallDirect(0);
+                            directCallFixups.push_back(callPos);
+                        } else {
+                            void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
+                            emitter.movRegImm64(X64Emitter::R10, reinterpret_cast<uintptr_t>(slotAddress));
+                            emitter.emit8(0x49); emitter.emit8(0x8b); emitter.emit8(0x02);
+                            emitter.emitCallReg(X64Emitter::RAX);
+                        }
+
+                        emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), X64Emitter::RAX);
+                        evalDepth++;
+                        break;
+                    }
+                }
+
+                // Peephole 6: OP_GET_LOCAL slot; OP_CALL fnIdx, 1
+                if (ip + 4 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_CALL &&
+                    code[ip + 3] == 1) {
+                    uint16_t fnIdx = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    Chunk* targetChunk = (fnIdx < chunk->cachedChunks.size()) ? chunk->cachedChunks[fnIdx] : nullptr;
+                    if (targetChunk) {
+                        ip += 4;
+                        if (slot < MAX_REG_LOCALS_X64) {
+                            emitter.movRegReg(argRegs[0], kLocalRegsX64[slot]);
+                        } else {
+                            emitter.movRegStack(argRegs[0], emitter.getLocalDisp(slot));
+                        }
+
+                        if (targetChunk == chunk) {
+                            size_t callPos = emitter.currentOffset();
+                            emitter.emitCallDirect(0);
+                            directCallFixups.push_back(callPos);
+                        } else {
+                            void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
+                            emitter.movRegImm64(X64Emitter::R10, reinterpret_cast<uintptr_t>(slotAddress));
+                            emitter.emit8(0x49); emitter.emit8(0x8b); emitter.emit8(0x02);
+                            emitter.emitCallReg(X64Emitter::RAX);
+                        }
+
+                        emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), X64Emitter::RAX);
+                        evalDepth++;
+                        break;
+                    }
                 }
 
                 if (slot < MAX_REG_LOCALS_X64) {
@@ -1223,8 +1396,43 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_LOOP: {
                 uint16_t offset = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                size_t fixup = emitter.emitJmp();
-                fixups.push_back({ fixup, ip - offset });
+                size_t targetBcIp = ip - offset;
+                auto it = loopHeaders.find(targetBcIp);
+                if (it != loopHeaders.end()) {
+                    const auto& info = it->second;
+                    if (info.isConst) {
+                        if (info.slotA < MAX_REG_LOCALS_X64) {
+                            emitter.cmpRegImm(kLocalRegsX64[info.slotA], info.constVal);
+                        } else {
+                            emitter.cmpStackImm(emitter.getLocalDisp(info.slotA), info.constVal);
+                        }
+                    } else {
+                        X64Emitter::Reg regA = (info.slotA < MAX_REG_LOCALS_X64) ? kLocalRegsX64[info.slotA] : X64Emitter::RAX;
+                        if (info.slotA >= MAX_REG_LOCALS_X64) emitter.movRegStack(X64Emitter::RAX, emitter.getLocalDisp(info.slotA));
+
+                        X64Emitter::Reg regB = (info.slotB < MAX_REG_LOCALS_X64) ? kLocalRegsX64[info.slotB] : X64Emitter::RDX;
+                        if (info.slotB >= MAX_REG_LOCALS_X64) emitter.movRegStack(X64Emitter::RDX, emitter.getLocalDisp(info.slotB));
+
+                        emitter.cmpRegReg(regA, regB);
+                    }
+
+                    uint8_t loopBackCc = 0x8c; // jl
+                    switch (info.cmpOp) {
+                        case OpCode::OP_LESS: loopBackCc = 0x8c; break;          // jl
+                        case OpCode::OP_LESS_EQUAL: loopBackCc = 0x8e; break;    // jle
+                        case OpCode::OP_GREATER: loopBackCc = 0x8f; break;       // jg
+                        case OpCode::OP_GREATER_EQUAL: loopBackCc = 0x8d; break; // jge
+                        case OpCode::OP_EQUAL: loopBackCc = 0x84; break;         // je
+                        case OpCode::OP_NOT_EQUAL: loopBackCc = 0x85; break;     // jne
+                        default: break;
+                    }
+                    size_t jccPos = emitter.emitJcc(loopBackCc);
+                    int32_t rel = static_cast<int32_t>(info.bodyNativeOffset) - static_cast<int32_t>(jccPos + 4);
+                    emitter.patch32(jccPos, rel);
+                } else {
+                    size_t fixup = emitter.emitJmp();
+                    fixups.push_back({ fixup, targetBcIp });
+                }
                 break;
             }
             case OpCode::OP_INC_LOCAL: {
@@ -1290,6 +1498,18 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
 
                 size_t fixup = emitter.emitJcc(cc);
                 fixups.push_back({ fixup, ip + offset });
+
+                emitter.emitAlign(16);
+                LoopHeaderInfo info;
+                info.bodyNativeOffset = emitter.currentOffset();
+                info.isConst = true;
+                info.slotA = slot;
+                info.constVal = imm;
+                if (op == OpCode::OP_JUMP_IF_LOCAL_GE_CONST) info.cmpOp = OpCode::OP_LESS;
+                else if (op == OpCode::OP_JUMP_IF_LOCAL_GT_CONST) info.cmpOp = OpCode::OP_LESS_EQUAL;
+                else if (op == OpCode::OP_JUMP_IF_LOCAL_LE_CONST) info.cmpOp = OpCode::OP_GREATER;
+                else if (op == OpCode::OP_JUMP_IF_LOCAL_LT_CONST) info.cmpOp = OpCode::OP_GREATER_EQUAL;
+                loopHeaders[curBcIp] = info;
                 break;
             }
             case OpCode::OP_FAST_LOOP: {
@@ -1334,17 +1554,22 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                     return false;
                 }
 
-                void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
-
                 for (int i = 0; i < argCount && i < 6; ++i) {
                     int slotDisp = emitter.getEvalDisp(evalDepth - argCount + i, numLocals);
                     emitter.movRegStack(argRegs[i], slotDisp);
                 }
 
-                emitter.movRegImm64(X64Emitter::R10, reinterpret_cast<uintptr_t>(slotAddress));
-                // mov rax, [r10]
-                emitter.emit8(0x49); emitter.emit8(0x8b); emitter.emit8(0x02);
-                emitter.emitCallReg(X64Emitter::RAX);
+                if (targetChunk == chunk) {
+                    size_t callPos = emitter.currentOffset();
+                    emitter.emitCallDirect(0);
+                    directCallFixups.push_back(callPos);
+                } else {
+                    void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
+                    emitter.movRegImm64(X64Emitter::R10, reinterpret_cast<uintptr_t>(slotAddress));
+                    // mov rax, [r10]
+                    emitter.emit8(0x49); emitter.emit8(0x8b); emitter.emit8(0x02);
+                    emitter.emitCallReg(X64Emitter::RAX);
+                }
 
                 evalDepth -= argCount;
                 emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), X64Emitter::RAX);
@@ -1357,8 +1582,10 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
                 } else {
                     emitter.movRegImm64(X64Emitter::RAX, 0);
                 }
-                size_t jmpPos = emitter.emitJmp();
-                epilogueJumps.push_back(jmpPos);
+                if (ip < code.size()) {
+                    size_t jmpPos = emitter.emitJmp();
+                    epilogueJumps.push_back(jmpPos);
+                }
                 break;
             }
             default:
@@ -1379,6 +1606,10 @@ bool JitCompiler::compileChunkX64(Chunk* chunk, JitEngine* engine) {
     for (size_t epJmp : epilogueJumps) {
         int32_t rel = static_cast<int32_t>(epilogueOffset) - static_cast<int32_t>(epJmp + 4);
         emitter.patch32(epJmp, rel);
+    }
+
+    for (size_t callPos : directCallFixups) {
+        emitter.patchCall(callPos, 0);
     }
 
     void* codePtr = engine->allocateCode(emitter.getCode());
@@ -1416,6 +1647,17 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
     };
     std::vector<Fixup> fixups;
     std::vector<size_t> epilogueJumps;
+
+    struct LoopHeaderInfo {
+        size_t bodyNativeOffset = 0;
+        uint16_t slotA = 0;
+        uint16_t slotB = 0;
+        bool isConst = false;
+        int64_t constVal = 0;
+        OpCode cmpOp = OpCode::OP_LESS;
+    };
+    std::unordered_map<size_t, LoopHeaderInfo> loopHeaders;
+    std::vector<size_t> directCallFixups;
 
     int evalDepth = 0;
     const auto& code = chunk->code;
@@ -1490,6 +1732,23 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                     break;
                 }
 
+                // Peephole 1b: OP_GET_LOCAL slot; OP_JUMP target -> if target is OP_RETURN
+                if (ip + 3 <= code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_JUMP) {
+                    uint16_t offset = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    size_t targetIp = (ip + 3) + offset;
+                    if (targetIp < code.size() && static_cast<OpCode>(code[targetIp]) == OpCode::OP_RETURN) {
+                        ip += 3;
+                        if (slot < MAX_REG_LOCALS_ARM64) {
+                            emitter.movRegReg(Arm64Emitter::X0, kLocalRegsArm64[slot]);
+                        } else {
+                            emitter.movRegStack(Arm64Emitter::X0, emitter.getLocalDisp(slot));
+                        }
+                        size_t jmpPos = emitter.emitJmp();
+                        epilogueJumps.push_back(jmpPos);
+                        break;
+                    }
+                }
+
                 // Peephole 2: OP_GET_LOCAL slot; OP_APPEND_LOCAL targetSlot
                 if (ip + 3 <= code.size() && static_cast<OpCode>(code[ip]) == OpCode::OP_APPEND_LOCAL) {
                     uint16_t targetSlot = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
@@ -1537,6 +1796,15 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                     }
                     size_t fixup = emitter.emitJcc(invertedCond);
                     fixups.push_back({ fixup, targetBcIp });
+
+                    emitter.emitAlign(16);
+                    LoopHeaderInfo info;
+                    info.bodyNativeOffset = emitter.currentOffset();
+                    info.isConst = false;
+                    info.slotA = slot;
+                    info.slotB = slotB;
+                    info.cmpOp = cmpOp;
+                    loopHeaders[curBcIp] = info;
                     break;
                 }
 
@@ -1569,7 +1837,92 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                     }
                     size_t fixup = emitter.emitJcc(invertedCond);
                     fixups.push_back({ fixup, targetBcIp });
+
+                    emitter.emitAlign(16);
+                    LoopHeaderInfo info;
+                    info.bodyNativeOffset = emitter.currentOffset();
+                    info.isConst = true;
+                    info.slotA = slot;
+                    info.constVal = cVal;
+                    info.cmpOp = cmpOp;
+                    loopHeaders[curBcIp] = info;
                     break;
+                }
+
+                // Peephole 5: OP_GET_LOCAL slot; OP_CONSTANT idx; OP_SUB/OP_ADD; OP_CALL fnIdx, 1
+                if (ip + 8 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_CONSTANT &&
+                    (static_cast<OpCode>(code[ip + 3]) == OpCode::OP_SUB || static_cast<OpCode>(code[ip + 3]) == OpCode::OP_ADD) &&
+                    static_cast<OpCode>(code[ip + 4]) == OpCode::OP_CALL &&
+                    code[ip + 7] == 1) {
+                    uint16_t cIdx = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    OpCode mathOp = static_cast<OpCode>(code[ip + 3]);
+                    uint16_t fnIdx = static_cast<uint16_t>((code[ip + 5] << 8) | code[ip + 6]);
+
+                    Chunk* targetChunk = (fnIdx < chunk->cachedChunks.size()) ? chunk->cachedChunks[fnIdx] : nullptr;
+                    if (targetChunk && cIdx < chunk->constants.size() && chunk->constants[cIdx].isInt()) {
+                        int64_t cVal = chunk->constants[cIdx].asInt();
+                        ip += 8;
+
+                        if (slot < MAX_REG_LOCALS_ARM64) {
+                            emitter.movRegReg(callArgs[0], kLocalRegsArm64[slot]);
+                        } else {
+                            emitter.movRegStack(callArgs[0], emitter.getLocalDisp(slot));
+                        }
+
+                        if (mathOp == OpCode::OP_SUB) {
+                            emitter.subRegImm(callArgs[0], cVal);
+                        } else {
+                            emitter.addRegImm(callArgs[0], cVal);
+                        }
+
+                        if (targetChunk == chunk) {
+                            size_t callPos = emitter.currentOffset();
+                            emitter.emitCallDirect(0);
+                            directCallFixups.push_back(callPos);
+                        } else {
+                            void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
+                            emitter.movRegImm64(Arm64Emitter::X10, reinterpret_cast<uintptr_t>(slotAddress));
+                            // ldr x9, [x10, #0]
+                            emitter.emit32(0xf9400149);
+                            emitter.emitCallReg(Arm64Emitter::X9);
+                        }
+
+                        emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), Arm64Emitter::X0);
+                        evalDepth++;
+                        break;
+                    }
+                }
+
+                // Peephole 6: OP_GET_LOCAL slot; OP_CALL fnIdx, 1
+                if (ip + 4 <= code.size() &&
+                    static_cast<OpCode>(code[ip]) == OpCode::OP_CALL &&
+                    code[ip + 3] == 1) {
+                    uint16_t fnIdx = static_cast<uint16_t>((code[ip + 1] << 8) | code[ip + 2]);
+                    Chunk* targetChunk = (fnIdx < chunk->cachedChunks.size()) ? chunk->cachedChunks[fnIdx] : nullptr;
+                    if (targetChunk) {
+                        ip += 4;
+                        if (slot < MAX_REG_LOCALS_ARM64) {
+                            emitter.movRegReg(callArgs[0], kLocalRegsArm64[slot]);
+                        } else {
+                            emitter.movRegStack(callArgs[0], emitter.getLocalDisp(slot));
+                        }
+
+                        if (targetChunk == chunk) {
+                            size_t callPos = emitter.currentOffset();
+                            emitter.emitCallDirect(0);
+                            directCallFixups.push_back(callPos);
+                        } else {
+                            void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
+                            emitter.movRegImm64(Arm64Emitter::X10, reinterpret_cast<uintptr_t>(slotAddress));
+                            emitter.emit32(0xf9400149);
+                            emitter.emitCallReg(Arm64Emitter::X9);
+                        }
+
+                        emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), Arm64Emitter::X0);
+                        evalDepth++;
+                        break;
+                    }
                 }
 
                 if (slot < MAX_REG_LOCALS_ARM64) {
@@ -1712,8 +2065,42 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
             case OpCode::OP_LOOP: {
                 uint16_t offset = static_cast<uint16_t>((code[ip] << 8) | code[ip + 1]);
                 ip += 2;
-                size_t fixup = emitter.emitJmp();
-                fixups.push_back({ fixup, ip - offset });
+                size_t targetBcIp = ip - offset;
+                auto it = loopHeaders.find(targetBcIp);
+                if (it != loopHeaders.end()) {
+                    const auto& info = it->second;
+                    if (info.isConst) {
+                        if (info.slotA < MAX_REG_LOCALS_ARM64) {
+                            emitter.cmpRegImm(kLocalRegsArm64[info.slotA], info.constVal);
+                        } else {
+                            emitter.cmpStackImm(emitter.getLocalDisp(info.slotA), info.constVal);
+                        }
+                    } else {
+                        Arm64Emitter::Reg regA = (info.slotA < MAX_REG_LOCALS_ARM64) ? kLocalRegsArm64[info.slotA] : Arm64Emitter::X9;
+                        if (info.slotA >= MAX_REG_LOCALS_ARM64) emitter.movRegStack(Arm64Emitter::X9, emitter.getLocalDisp(info.slotA));
+
+                        Arm64Emitter::Reg regB = (info.slotB < MAX_REG_LOCALS_ARM64) ? kLocalRegsArm64[info.slotB] : Arm64Emitter::X10;
+                        if (info.slotB >= MAX_REG_LOCALS_ARM64) emitter.movRegStack(Arm64Emitter::X10, emitter.getLocalDisp(info.slotB));
+
+                        emitter.cmpRegReg(regA, regB);
+                    }
+
+                    Arm64Emitter::Cond loopCond = Arm64Emitter::Cond::LT;
+                    switch (info.cmpOp) {
+                        case OpCode::OP_LESS: loopCond = Arm64Emitter::Cond::LT; break;
+                        case OpCode::OP_LESS_EQUAL: loopCond = Arm64Emitter::Cond::LE; break;
+                        case OpCode::OP_GREATER: loopCond = Arm64Emitter::Cond::GT; break;
+                        case OpCode::OP_GREATER_EQUAL: loopCond = Arm64Emitter::Cond::GE; break;
+                        case OpCode::OP_EQUAL: loopCond = Arm64Emitter::Cond::EQ; break;
+                        case OpCode::OP_NOT_EQUAL: loopCond = Arm64Emitter::Cond::NE; break;
+                        default: break;
+                    }
+                    size_t branchPos = emitter.emitJcc(loopCond);
+                    emitter.patchBranch(branchPos, info.bodyNativeOffset);
+                } else {
+                    size_t fixup = emitter.emitJmp();
+                    fixups.push_back({ fixup, targetBcIp });
+                }
                 break;
             }
             case OpCode::OP_INC_LOCAL: {
@@ -1779,6 +2166,18 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
 
                 size_t fixup = emitter.emitJcc(cond);
                 fixups.push_back({ fixup, ip + offset });
+
+                emitter.emitAlign(16);
+                LoopHeaderInfo info;
+                info.bodyNativeOffset = emitter.currentOffset();
+                info.isConst = true;
+                info.slotA = slot;
+                info.constVal = imm;
+                if (op == OpCode::OP_JUMP_IF_LOCAL_GE_CONST) info.cmpOp = OpCode::OP_LESS;
+                else if (op == OpCode::OP_JUMP_IF_LOCAL_GT_CONST) info.cmpOp = OpCode::OP_LESS_EQUAL;
+                else if (op == OpCode::OP_JUMP_IF_LOCAL_LE_CONST) info.cmpOp = OpCode::OP_GREATER;
+                else if (op == OpCode::OP_JUMP_IF_LOCAL_LT_CONST) info.cmpOp = OpCode::OP_GREATER_EQUAL;
+                loopHeaders[curBcIp] = info;
                 break;
             }
             case OpCode::OP_FAST_LOOP: {
@@ -1822,17 +2221,22 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                     return false;
                 }
 
-                void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
-
                 for (int i = 0; i < argCount && i < 6; ++i) {
                     int slotDisp = emitter.getEvalDisp(evalDepth - argCount + i, numLocals);
                     emitter.movRegStack(callArgs[i], slotDisp);
                 }
 
-                emitter.movRegImm64(Arm64Emitter::X10, reinterpret_cast<uintptr_t>(slotAddress));
-                // ldr x9, [x10, #0]
-                emitter.emit32(0xf9400149);
-                emitter.emitCallReg(Arm64Emitter::X9);
+                if (targetChunk == chunk) {
+                    size_t callPos = emitter.currentOffset();
+                    emitter.emitCallDirect(0);
+                    directCallFixups.push_back(callPos);
+                } else {
+                    void* slotAddress = reinterpret_cast<void*>(&targetChunk->jitFuncInt);
+                    emitter.movRegImm64(Arm64Emitter::X10, reinterpret_cast<uintptr_t>(slotAddress));
+                    // ldr x9, [x10, #0]
+                    emitter.emit32(0xf9400149);
+                    emitter.emitCallReg(Arm64Emitter::X9);
+                }
 
                 evalDepth -= argCount;
                 emitter.movStackReg(emitter.getEvalDisp(evalDepth, numLocals), Arm64Emitter::X0);
@@ -1845,8 +2249,10 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
                 } else {
                     emitter.movRegImm64(Arm64Emitter::X0, 0);
                 }
-                size_t jmpPos = emitter.emitJmp();
-                epilogueJumps.push_back(jmpPos);
+                if (ip < code.size()) {
+                    size_t jmpPos = emitter.emitJmp();
+                    epilogueJumps.push_back(jmpPos);
+                }
                 break;
             }
             default:
@@ -1865,6 +2271,10 @@ bool JitCompiler::compileChunkArm64(Chunk* chunk, JitEngine* engine) {
 
     for (size_t epJmp : epilogueJumps) {
         emitter.patchBranch(epJmp, epilogueOffset);
+    }
+
+    for (size_t callPos : directCallFixups) {
+        emitter.patchCall(callPos, 0);
     }
 
     void* codePtr = engine->allocateCode(emitter.getCode());
