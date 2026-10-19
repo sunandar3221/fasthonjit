@@ -192,14 +192,27 @@ std::string Diagnostic::format(
     // Error Class & Message
     ss << cRedBold << errorType << cReset << ": " << cWhiteBold << message << cReset << "\n";
 
+    static const char* tipIcon =
+#ifdef _WIN32
+        "[*]";
+#else
+        ([]() {
+            const char* lang = std::getenv("LANG");
+            const char* lcAll = std::getenv("LC_ALL");
+            bool isUtf8 = (lang && (std::string(lang).find("UTF-8") != std::string::npos || std::string(lang).find("utf8") != std::string::npos)) ||
+                          (lcAll && (std::string(lcAll).find("UTF-8") != std::string::npos || std::string(lcAll).find("utf8") != std::string::npos));
+            return isUtf8 ? "💡" : "[*]";
+        })();
+#endif
+
     // Recommendation (Did you mean...?)
     if (!recommendation.empty()) {
-        ss << "  " << cYellowBold << "💡 Rekomendasi:" << cReset << " " << recommendation << "\n";
+        ss << "  " << cYellowBold << tipIcon << " Rekomendasi:" << cReset << " " << recommendation << "\n";
     }
 
     // Hint / Actionable Solution
     if (!hint.empty()) {
-        ss << "  " << cCyanBold << "💡 Solusi:" << cReset << " " << hint << "\n";
+        ss << "  " << cCyanBold << tipIcon << " Solusi:" << cReset << " " << hint << "\n";
     }
 
     return ss.str();

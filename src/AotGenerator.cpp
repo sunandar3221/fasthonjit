@@ -1792,7 +1792,7 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
 #endif
         } else {
             std::cerr << "Error: Toolchain untuk target Android (ARM64) tidak ditemukan.\n";
-            std::cerr << "  💡 Solusi: Pasang Zig ('winget install zig.zig' di Windows / 'sudo apt install zig' di Linux) atau konfigurasi ANDROID_NDK_ROOT.\n";
+            std::cerr << "  [*] Solusi: Pasang Zig ('winget install zig.zig' di Windows / 'sudo apt install zig' di Linux) atau konfigurasi ANDROID_NDK_ROOT.\n";
             std::remove(sourceFile.c_str());
             return false;
         }
@@ -1843,7 +1843,7 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
             }
         } else {
             std::cerr << "Error: Toolchain untuk target Linux tidak ditemukan di Windows.\n";
-            std::cerr << "  💡 Solusi: Pasang Zig ('winget install zig.zig') atau aktifkan WSL ('wsl').\n";
+            std::cerr << "  [*] Solusi: Pasang Zig ('winget install zig.zig') atau aktifkan WSL ('wsl').\n";
             std::remove(sourceFile.c_str());
             return false;
         }
