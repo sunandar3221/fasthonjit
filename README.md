@@ -393,24 +393,45 @@ end
 print cekStatus(20) # Output: Adult
 ```
 
-#### Memasukkan Fungsi ke Variabel (First-Class Functions)
-Fungsi di Fasthon dapat disimpan ke dalam variabel. Penugasan fungsi langsung ke variabel dibuat sangat ringkas: **hanya 1 baris tanpa parameter dan tanpa memerlukan kata kunci `end`**:
+#### Memasukkan Fungsi & Ekspresi ke Variabel (First-Class Functions & Expressions)
+Fasthon mendukung penugasan fungsi (`fn` / `def`), ekspresi percabangan (`if-else`), dan loop (`loop`) langsung ke dalam variabel:
+- **Multi-baris (Multi-line)**: **Wajib** ditutup dengan kata kunci `end`.
+- **Satu baris (Single-line)**: Penutup `end` bersifat **opsional** (boleh dipakai atau tidak).
 
 ```fasthon
-# Merujuk fungsi yang sudah ada
-operasi = add
-print operasi 15 25
-
-# Menugaskan fungsi 1 baris langsung ke variabel (tanpa parameter & tanpa end)
-hai = print("hei")
-hai()  # Output: hei
-
-# Catatan: Penugasan fungsi ke variabel 2 baris atau lebih akan ditolak.
-# Jika membutuhkan fungsi multi-baris atau berparameter, WAJIB menggunakan 'def':
-def kali(x, y)
+# 1. Fungsi multi-baris di variabel (wajib pakai 'end' dan mendukung parameter)
+kali = fn(x, y)
     return x * y
 end
-print kali(4, 5)  # Output: 20
+print kali(6, 7)  # Output: 42
+
+# 2. Fungsi 1 baris di variabel (end opsional)
+tambah = fn(x, y) return x + y       # Tanpa end
+kurang = fn(x, y) return x - y end   # Dengan end
+print tambah(10, 20)  # Output: 30
+print kurang(50, 20)  # Output: 30
+
+# 3. If-Else expression di variabel
+# Multi-baris (wajib pakai 'end'):
+status = if x > 10
+    "tinggi"
+else
+    "rendah"
+end
+
+# Satu baris (end opsional):
+s1 = if x > 10 then "tinggi" else "rendah"
+s2 = if x > 10 then "tinggi" else "rendah" end
+
+# 4. Loop expression di variabel
+# Multi-baris (wajib pakai 'end'):
+l1 = loop 3
+    "A"
+end
+
+# Satu baris (end opsional):
+l2 = loop 2 "B"
+l3 = loop 2 "C" end
 ```
 
 ### Bab 7: Pustaka I/O & Input Interaktif (`use io` / `import io`)

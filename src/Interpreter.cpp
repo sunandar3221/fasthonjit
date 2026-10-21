@@ -821,5 +821,37 @@ Value Interpreter::evaluate(Expr* expr) {
         return Value::makeObject();
     }
 
+    if (auto* ifExpr = dynamic_cast<IfExpr*>(expr)) {
+        Value cond = evaluate(ifExpr->condition.get());
+        if (cond.isTruthy()) {
+            return executeBlock(ifExpr->thenBranch.get(), currentEnv_);
+        } else if (ifExpr->elseBranch) {
+            return executeBlock(ifExpr->elseBranch.get(), currentEnv_);
+        }
+        return Value();
+    }
+
+    if (auto* loopExpr = dynamic_cast<LoopExpr*>(expr)) {
+        Value cntVal = evaluate(loopExpr->count.get());
+        int64_t n = cntVal.asInt();
+        std::string accum = "";
+        for (int64_t i = 0; i < n; ++i) {
+            if (loopExpr->body) {
+                for (const auto& s : loopExpr->body->statements) {
+                    if (auto* p = dynamic_cast<PrintStmt*>(s.get())) {
+                        for (const auto& a : p->arguments) {
+                            accum += evaluate(a.get()).toString();
+                        }
+                    } else if (auto* es = dynamic_cast<ExprStmt*>(s.get())) {
+                        accum += evaluate(es->expression.get()).toString();
+                    } else {
+                        execute(s.get());
+                    }
+                }
+            }
+        }
+        return Value(accum);
+    }
+
     return Value();
 }

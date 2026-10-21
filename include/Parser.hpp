@@ -52,6 +52,7 @@ private:
     std::unique_ptr<Stmt> parseBreak();
     std::unique_ptr<Stmt> parseContinue();
     std::unique_ptr<Stmt> parseAssignmentOrExpr();
+    std::unique_ptr<IfExpr> parseIfExpr(bool isElif = false);
 
     std::unique_ptr<Expr> parseExpression();
     std::unique_ptr<Expr> parseLogicalOr();

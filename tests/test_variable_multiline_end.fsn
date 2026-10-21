@@ -1,0 +1,62 @@
+# Pengujian fungsi multi-line dan single-line dalam variabel
+
+# 1. Multi-line function assigned to variable with params and end
+kali = fn(x, y)
+    return x * y
+end
+print("Multi-line fn:", kali(6, 7))
+
+# 2. Single-line function without end
+tambah = fn(x, y) return x + y
+print("Single-line fn no end:", tambah(10, 25))
+
+# 3. Single-line function with end
+kurang = fn(x, y) return x - y end
+print("Single-line fn with end:", kurang(50, 20))
+
+# 4. Single-line function expression body without end
+bagi = fn(x, y) x / y
+print("Single-line expr fn no end:", bagi(100, 4))
+
+# 5. Single-line function expression body with end
+pangkat = fn(x, y) x * y end
+print("Single-line expr fn with end:", pangkat(5, 5))
+
+# 6. Multi-line if-else in variable
+x = 20
+status1 = if x > 15
+    "besar"
+else
+    "kecil"
+end
+print("Multi-line if:", status1)
+
+# 7. Single-line if-else without end
+status2 = if x > 50 then "tinggi" else "rendah"
+print("Single-line if no end:", status2)
+
+# 8. Single-line if-else with end
+status3 = if x > 50 then "tinggi" else "rendah" end
+print("Single-line if with end:", status3)
+
+# 9. Multi-line loop in variable
+res1 = loop 3
+    "A"
+end
+print("Multi-line loop:", res1)
+
+# 10. Single-line loop without end
+res2 = loop 2 "B"
+print("Single-line loop no end:", res2)
+
+# 11. Single-line loop with end
+res3 = loop 2 "C" end
+print("Single-line loop with end:", res3)
+
+# 12. Multi-line def assigned to variable
+kali2 = def(a, b)
+    return a * b
+end
+print("Multi-line def assigned to var:", kali2(4, 5))
+
+print("SEMUA TEST MULTI-LINE & SINGLE-LINE VARIABEL SUKSES!")

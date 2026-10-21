@@ -714,11 +714,35 @@ std::unique_ptr<Stmt> Parser::parseFnDecl() {
 
     functionArity_[name] = static_cast<int>(params.size());
     if (match(TokenType::DO)) {}
-    if (check(TokenType::NEWLINE)) advance();
-    auto body = parseBlock(false);
-    skipNewlines();
-    if (!match(TokenType::END)) {
-        reportError("Diharapkan 'end' untuk menutup fungsi '" + name + "'", peek(), "Tambahkan 'end' di akhir fungsi.", "Setiap deklarasi fungsi wajib ditutup dengan kata kunci 'end' (gaya Lua).");
+    bool multiLine = check(TokenType::NEWLINE);
+    std::unique_ptr<BlockStmt> body = nullptr;
+    if (multiLine) {
+        advance();
+        body = parseBlock(false);
+        skipNewlines();
+        if (!match(TokenType::END)) {
+            reportError("Diharapkan 'end' untuk menutup fungsi '" + name + "'", peek(), "Tambahkan 'end' di akhir fungsi.", "Setiap deklarasi fungsi multi-baris wajib ditutup dengan kata kunci 'end' (gaya Lua).");
+        }
+    } else {
+        body = std::make_unique<BlockStmt>();
+        std::unique_ptr<Stmt> stmt = nullptr;
+        if (check(TokenType::PRINT) || check(TokenType::SILENT_PRINT)) {
+            stmt = parsePrint(check(TokenType::SILENT_PRINT));
+        } else if (check(TokenType::WRITE)) {
+            stmt = parseWrite();
+        } else if (check(TokenType::RETURN)) {
+            stmt = parseReturn();
+        } else {
+            auto expr = parseExpression();
+            stmt = std::make_unique<ExprStmt>(std::move(expr), line);
+        }
+        if (stmt) body->statements.push_back(std::move(stmt));
+        if (check(TokenType::END)) {
+            advance();
+        } else if (check(TokenType::NEWLINE) && peekNext().type == TokenType::END) {
+            advance();
+            advance();
+        }
     }
     return std::make_unique<FnDeclStmt>(std::move(name), std::move(params), std::move(body), line);
 }
@@ -745,6 +769,73 @@ std::unique_ptr<Stmt> Parser::parseContinue() {
     return std::make_unique<ContinueStmt>(line);
 }
 
+std::unique_ptr<IfExpr> Parser::parseIfExpr(bool isElif) {
+    Token ifTok = advance();
+    int ifLine = ifTok.line;
+    auto condition = parseExpression();
+    if (!condition) {
+        reportError("Expected condition expression after '" + ifTok.lexeme + "'", peek());
+    }
+    if (match(TokenType::THEN)) {}
+    bool multiLine = check(TokenType::NEWLINE);
+    std::unique_ptr<BlockStmt> thenBranch = nullptr;
+    if (multiLine) {
+        advance();
+        thenBranch = parseBlock(true);
+    } else {
+        thenBranch = std::make_unique<BlockStmt>();
+        auto expr = parseExpression();
+        if (expr) {
+            thenBranch->statements.push_back(std::make_unique<ExprStmt>(std::move(expr), ifLine));
+        }
+    }
+    if (check(TokenType::NEWLINE)) multiLine = true;
+    skipNewlines();
+    std::unique_ptr<BlockStmt> elseBranch = nullptr;
+    if (check(TokenType::ELIF)) {
+        auto elifExpr = parseIfExpr(true);
+        elseBranch = std::make_unique<BlockStmt>();
+        elseBranch->statements.push_back(std::make_unique<ExprStmt>(std::move(elifExpr), ifLine));
+    } else if (match(TokenType::ELSE)) {
+        if (check(TokenType::IF) || check(TokenType::ELIF)) {
+            auto elifExpr = parseIfExpr(true);
+            elseBranch = std::make_unique<BlockStmt>();
+            elseBranch->statements.push_back(std::make_unique<ExprStmt>(std::move(elifExpr), ifLine));
+        } else {
+            if (check(TokenType::NEWLINE)) {
+                multiLine = true;
+                advance();
+            }
+            if (multiLine) {
+                elseBranch = parseBlock(false);
+            } else {
+                elseBranch = std::make_unique<BlockStmt>();
+                auto expr = parseExpression();
+                if (expr) {
+                    elseBranch->statements.push_back(std::make_unique<ExprStmt>(std::move(expr), ifLine));
+                }
+            }
+        }
+    }
+
+    if (!isElif) {
+        if (multiLine) {
+            skipNewlines();
+            if (!match(TokenType::END)) {
+                reportError("Diharapkan 'end' untuk menutup if expression", peek(), "Tambahkan 'end' di akhir blok.", "Setiap blok 'if' multi-baris wajib ditutup dengan kata kunci 'end' (gaya Lua).");
+            }
+        } else {
+            if (check(TokenType::END)) {
+                advance();
+            } else if (check(TokenType::NEWLINE) && peekNext().type == TokenType::END) {
+                advance();
+                advance();
+            }
+        }
+    }
+    return std::make_unique<IfExpr>(std::move(condition), std::move(thenBranch), std::move(elseBranch), ifLine);
+}
+
 std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr() {
     int line = peek().line;
     if (check(TokenType::IDENTIFIER) && peekNext().type == TokenType::ASSIGN) {
@@ -758,37 +849,48 @@ std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr() {
             int loopLine = advance().line;
             auto count = parseExpression();
             if (match(TokenType::DO)) {}
-            if (check(TokenType::NEWLINE)) advance();
-            auto body = parseBlock(false);
-            skipNewlines();
-            if (!match(TokenType::END)) {
-                reportError("Diharapkan 'end' untuk menutup loop expression", peek(), "Tambahkan 'end' di akhir blok.", "Setiap blok 'loop' wajib ditutup dengan kata kunci 'end' (gaya Lua).");
+            bool multiLine = check(TokenType::NEWLINE);
+            std::unique_ptr<BlockStmt> body = nullptr;
+            if (multiLine) {
+                advance();
+                body = parseBlock(false);
+                skipNewlines();
+                if (!match(TokenType::END)) {
+                    reportError("Diharapkan 'end' untuk menutup loop expression", peek(), "Tambahkan 'end' di akhir blok.", "Setiap blok 'loop' multi-baris wajib ditutup dengan kata kunci 'end' (gaya Lua).");
+                }
+            } else {
+                body = std::make_unique<BlockStmt>();
+                std::unique_ptr<Stmt> stmt = nullptr;
+                if (check(TokenType::PRINT) || check(TokenType::SILENT_PRINT)) {
+                    stmt = parsePrint(check(TokenType::SILENT_PRINT));
+                } else if (check(TokenType::WRITE)) {
+                    stmt = parseWrite();
+                } else if (check(TokenType::RETURN)) {
+                    stmt = parseReturn();
+                } else {
+                    auto expr = parseExpression();
+                    stmt = std::make_unique<ExprStmt>(std::move(expr), loopLine);
+                }
+                if (stmt) body->statements.push_back(std::move(stmt));
+                if (check(TokenType::END)) {
+                    advance();
+                } else if (check(TokenType::NEWLINE) && peekNext().type == TokenType::END) {
+                    advance();
+                    advance();
+                }
             }
             return std::make_unique<AssignStmt>(std::move(name), std::make_unique<LoopExpr>(std::move(count), std::move(body), loopLine), line);
         }
         if (check(TokenType::IF)) {
-            int ifLine = advance().line;
-            auto condition = parseExpression();
-            if (match(TokenType::THEN)) {}
-            if (check(TokenType::NEWLINE)) advance();
-            auto thenBranch = parseBlock(true);
-            skipNewlines();
-            std::unique_ptr<BlockStmt> elseBranch = nullptr;
-            if (match(TokenType::ELSE)) {
-                if (check(TokenType::NEWLINE)) advance();
-                elseBranch = parseBlock(false);
-            }
-            skipNewlines();
-            if (!match(TokenType::END)) {
-                reportError("Diharapkan 'end' untuk menutup if expression", peek(), "Tambahkan 'end' di akhir blok.", "Setiap blok 'if' wajib ditutup dengan kata kunci 'end' (gaya Lua).");
-            }
-            return std::make_unique<AssignStmt>(std::move(name), std::make_unique<IfExpr>(std::move(condition), std::move(thenBranch), std::move(elseBranch), ifLine), line);
+            auto ifExpr = parseIfExpr(false);
+            return std::make_unique<AssignStmt>(std::move(name), std::move(ifExpr), line);
         }
         if (check(TokenType::PRINT) || check(TokenType::SILENT_PRINT)) {
             bool silent = (peek().type == TokenType::SILENT_PRINT);
             auto printStmt = parsePrint(silent);
+            if (check(TokenType::END)) advance();
             if (check(TokenType::NEWLINE)) advance();
-            if (!isAtEnd() && peek().line > assignLine && peek().column > assignCol) {
+            if (!isAtEnd() && peek().line > assignLine && peek().column > assignCol && peek().type != TokenType::END) {
                 reportError("Penugasan fungsi ke variabel hanya mendukung 1 baris tanpa parameter. Gunakan 'def' untuk fungsi multi-baris.", peek(), "Gunakan 'def " + name + "()' untuk fungsi multi-baris.", "Fungsi multi-baris wajib menggunakan 'def' dan ditutup dengan 'end'.");
                 while (!isAtEnd() && peek().column > assignCol) {
                     advance();
@@ -802,8 +904,9 @@ std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr() {
         }
         if (check(TokenType::WRITE)) {
             auto writeStmt = parseWrite();
+            if (check(TokenType::END)) advance();
             if (check(TokenType::NEWLINE)) advance();
-            if (!isAtEnd() && peek().line > assignLine && peek().column > assignCol) {
+            if (!isAtEnd() && peek().line > assignLine && peek().column > assignCol && peek().type != TokenType::END) {
                 reportError("Penugasan fungsi ke variabel hanya mendukung 1 baris tanpa parameter. Gunakan 'def' untuk fungsi multi-baris.", peek(), "Gunakan 'def " + name + "()' untuk fungsi multi-baris.", "Fungsi multi-baris wajib menggunakan 'def' dan ditutup dengan 'end'.");
                 while (!isAtEnd() && peek().column > assignCol) {
                     advance();
@@ -817,51 +920,68 @@ std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr() {
         }
         if (check(TokenType::FN)) {
             Token fnTok = advance();
-            bool hasParams = false;
+            std::vector<std::string> params;
             if (match(TokenType::LPAREN)) {
                 skipNewlines();
-                if (!check(TokenType::RPAREN)) {
-                    hasParams = true;
+                while (!check(TokenType::RPAREN) && !isAtEnd()) {
+                    skipNewlines();
+                    if (check(TokenType::RPAREN) || isAtEnd()) break;
+                    if (check(TokenType::IDENTIFIER)) {
+                        params.push_back(advance().lexeme);
+                    } else {
+                        reportError("Diharapkan nama parameter dalam deklarasi fungsi", peek());
+                        if (!isAtEnd() && !check(TokenType::RPAREN) && !check(TokenType::COMMA) && !check(TokenType::NEWLINE)) {
+                            advance();
+                        }
+                    }
+                    skipNewlines();
+                    if (!match(TokenType::COMMA)) {
+                        break;
+                    }
+                    skipNewlines();
                 }
-                while (!check(TokenType::RPAREN) && !isAtEnd()) advance();
+                skipNewlines();
                 match(TokenType::RPAREN);
             } else {
-                if (check(TokenType::IDENTIFIER)) {
-                    hasParams = true;
-                    while (check(TokenType::IDENTIFIER)) advance();
+                while (check(TokenType::IDENTIFIER)) {
+                    params.push_back(advance().lexeme);
+                    match(TokenType::COMMA);
                 }
             }
-            if (hasParams) {
-                reportError("Penugasan fungsi ke variabel tidak boleh memiliki parameter. Gunakan 'def' untuk mendefinisikan fungsi dengan parameter.", fnTok, "Ubah menjadi 'def " + name + "(...)'", "Hanya 'def' yang mendukung fungsi dengan parameter.");
-                return nullptr;
-            }
-            if (check(TokenType::NEWLINE)) {
-                reportError("Penugasan fungsi ke variabel hanya mendukung 1 baris tanpa parameter. Gunakan 'def' untuk fungsi multi-baris.", peek(), "Gunakan 'def " + name + "()' untuk fungsi berbaris-baris.", "Fungsi multi-baris wajib menggunakan 'def' dan ditutup dengan 'end'.");
-                return nullptr;
-            }
+
+            functionArity_[name] = static_cast<int>(params.size());
             if (match(TokenType::DO)) {}
-            std::unique_ptr<Stmt> singleStmt = nullptr;
-            if (check(TokenType::PRINT) || check(TokenType::SILENT_PRINT)) {
-                singleStmt = parsePrint(check(TokenType::SILENT_PRINT));
-            } else if (check(TokenType::WRITE)) {
-                singleStmt = parseWrite();
+            bool multiLine = check(TokenType::NEWLINE);
+            std::unique_ptr<BlockStmt> body = nullptr;
+            if (multiLine) {
+                advance();
+                body = parseBlock(false);
+                skipNewlines();
+                if (!match(TokenType::END)) {
+                    reportError("Diharapkan 'end' untuk menutup fungsi '" + name + "'", peek(), "Tambahkan 'end' di akhir fungsi.", "Fungsi multi-baris wajib ditutup dengan kata kunci 'end' (gaya Lua).");
+                }
             } else {
-                auto expr = parseExpression();
-                singleStmt = std::make_unique<ExprStmt>(std::move(expr), fnTok.line);
-            }
-            if (check(TokenType::NEWLINE)) advance();
-            if (!isAtEnd() && peek().line > assignLine && peek().column > assignCol) {
-                reportError("Penugasan fungsi ke variabel hanya mendukung 1 baris tanpa parameter. Gunakan 'def' untuk fungsi multi-baris.", peek(), "Gunakan 'def " + name + "()' untuk fungsi multi-baris.", "Fungsi multi-baris wajib menggunakan 'def' dan ditutup dengan 'end'.");
-                while (!isAtEnd() && peek().column > assignCol) {
+                body = std::make_unique<BlockStmt>();
+                std::unique_ptr<Stmt> stmt = nullptr;
+                if (check(TokenType::PRINT) || check(TokenType::SILENT_PRINT)) {
+                    stmt = parsePrint(check(TokenType::SILENT_PRINT));
+                } else if (check(TokenType::WRITE)) {
+                    stmt = parseWrite();
+                } else if (check(TokenType::RETURN)) {
+                    stmt = parseReturn();
+                } else {
+                    auto expr = parseExpression();
+                    stmt = std::make_unique<ExprStmt>(std::move(expr), fnTok.line);
+                }
+                if (stmt) body->statements.push_back(std::move(stmt));
+                if (check(TokenType::END)) {
+                    advance();
+                } else if (check(TokenType::NEWLINE) && peekNext().type == TokenType::END) {
+                    advance();
                     advance();
                 }
-                return nullptr;
             }
-            if (check(TokenType::END)) advance();
-            auto body = std::make_unique<BlockStmt>();
-            body->statements.push_back(std::move(singleStmt));
-            functionArity_[name] = 0;
-            return std::make_unique<FnDeclStmt>(name, std::vector<std::string>{}, std::move(body), assignLine);
+            return std::make_unique<FnDeclStmt>(name, std::move(params), std::move(body), assignLine);
         }
         auto val = parseExpression();
         if (auto* varExp = dynamic_cast<VarExpr*>(val.get())) {
@@ -870,14 +990,7 @@ std::unique_ptr<Stmt> Parser::parseAssignmentOrExpr() {
                 functionArity_[name] = it->second;
             }
         }
-        if (check(TokenType::NEWLINE)) advance();
-        if (!isAtEnd() && peek().line > assignLine && peek().column > assignCol) {
-            reportError("Penugasan ke variabel hanya mendukung 1 baris. Gunakan 'def' untuk blok kode multi-baris.", peek(), "Gunakan 'def " + name + "()' jika ingin membuat blok fungsi.", "Fungsi multi-baris wajib menggunakan 'def' dan ditutup dengan 'end'.");
-            while (!isAtEnd() && peek().column > assignCol) {
-                advance();
-            }
-            return nullptr;
-        }
+        if (check(TokenType::END)) advance();
         return std::make_unique<AssignStmt>(std::move(name), std::move(val), line);
     }
 
@@ -1246,6 +1359,10 @@ std::unique_ptr<Expr> Parser::parsePrimary() {
             reportError("Tanda kurung penutup ')' diharapkan", peek(), "", "Pastikan menambahkan ')' untuk menutup ekspresi.");
         }
         return expr;
+    }
+
+    if (check(TokenType::IF)) {
+        return parseIfExpr(false);
     }
 
     if (match(TokenType::IDENTIFIER)) {
