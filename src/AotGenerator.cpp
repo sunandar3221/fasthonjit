@@ -1183,6 +1183,7 @@ std::string AotGenerator::getRuntimeSource() {
 #include <limits>
 #include <stdexcept>
 #include <algorithm>
+#include <type_traits>
 #include <thread>
 #include <cctype>
 #include <filesystem>
@@ -1222,7 +1223,8 @@ public:
     Value() : type(ValueType::NIL), boolVal(false), intVal(0), floatVal(0.0) {}
     Value(bool b) : type(ValueType::BOOL), boolVal(b), intVal(b ? 1 : 0), floatVal(b ? 1.0 : 0.0) {}
     Value(int64_t i) : type(ValueType::INT), boolVal(i != 0), intVal(i), floatVal(static_cast<double>(i)) {}
-    Value(long long i) : type(ValueType::INT), boolVal(i != 0), intVal(static_cast<int64_t>(i)), floatVal(static_cast<double>(i)) {}
+    template <typename T, typename = std::enable_if_t<std::is_same_v<T, long long> && !std::is_same_v<T, int64_t>>>
+    Value(T i) : type(ValueType::INT), boolVal(i != 0), intVal(static_cast<int64_t>(i)), floatVal(static_cast<double>(i)) {}
     Value(unsigned long long i) : type(ValueType::INT), boolVal(i != 0), intVal(static_cast<int64_t>(i)), floatVal(static_cast<double>(i)) {}
     Value(int i) : type(ValueType::INT), boolVal(i != 0), intVal(i), floatVal(static_cast<double>(i)) {}
     Value(double f) : type(ValueType::FLOAT), boolVal(f != 0.0), intVal(static_cast<int64_t>(f)), floatVal(f) {}
