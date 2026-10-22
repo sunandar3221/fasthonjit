@@ -30,14 +30,19 @@ SRCS = src/AST.cpp src/AotGenerator.cpp src/Bytecode.cpp src/BytecodeCompiler.cp
        src/Lexer.cpp src/Main.cpp src/Parser.cpp src/Repl.cpp \
        src/StandardLibrary.cpp src/Token.cpp src/VM.cpp src/Value.cpp
 
+OBJS = $(SRCS:.cpp=.o)
+
 all: $(TARGET)
 
-$(TARGET): $(SRCS)
-	$(CXX) $(CXXFLAGS) $(SRCS) $(LDFLAGS) -o $(TARGET)
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) $(OBJS) $(LDFLAGS) -o $(TARGET)
 	@cp $(TARGET) $(ALIAS1) 2>/dev/null || copy $(TARGET) $(ALIAS1) 2>nul || true
 	@cp $(TARGET) $(ALIAS2) 2>/dev/null || copy $(TARGET) $(ALIAS2) 2>nul || true
 
 clean:
-	@rm -f $(TARGET) $(ALIAS1) $(ALIAS2) *.o 2>/dev/null || del /Q /F $(TARGET) $(ALIAS1) $(ALIAS2) *.o 2>nul || true
+	@rm -f $(TARGET) $(ALIAS1) $(ALIAS2) $(OBJS) *.o src/*.o 2>/dev/null || del /Q /F $(TARGET) $(ALIAS1) $(ALIAS2) src\*.o *.o 2>nul || true
 
 .PHONY: all clean

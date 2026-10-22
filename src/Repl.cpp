@@ -62,6 +62,7 @@ void Repl::run() {
         };
         return startsWithWord("else") || startsWithWord("elif");
     };
+    (void)isBlockContinuation;
 
     auto executeCode = [this](const std::string& code) {
         Diagnostic::setSource("<repl>", code);

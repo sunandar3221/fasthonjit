@@ -11,6 +11,9 @@
 #include <random>
 #include <cstdio>
 #include <mutex>
+#include <filesystem>
+#include <thread>
+#include <iomanip>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -19,11 +22,22 @@
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #endif
 
 std::string StandardLibrary::appTitle_ = "Fasthon App";
 int StandardLibrary::windowWidth_ = 800;
 int StandardLibrary::windowHeight_ = 600;
+std::vector<std::string> StandardLibrary::args_;
+
+void StandardLibrary::setArgs(const std::vector<std::string>& args) {
+    args_ = args;
+}
+
+const std::vector<std::string>& StandardLibrary::getArgs() {
+    return args_;
+}
 
 #ifdef _WIN32
 static LRESULT CALLBACK FasthonWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -748,12 +762,82 @@ Value StandardLibrary::mathTan(double val) {
     return Value(std::tan(val));
 }
 
+Value StandardLibrary::mathAsin(double val) {
+    return Value(std::asin(val));
+}
+
+Value StandardLibrary::mathAcos(double val) {
+    return Value(std::acos(val));
+}
+
+Value StandardLibrary::mathAtan(double val) {
+    return Value(std::atan(val));
+}
+
+Value StandardLibrary::mathAtan2(double y, double x) {
+    return Value(std::atan2(y, x));
+}
+
+Value StandardLibrary::mathSinh(double val) {
+    return Value(std::sinh(val));
+}
+
+Value StandardLibrary::mathCosh(double val) {
+    return Value(std::cosh(val));
+}
+
+Value StandardLibrary::mathTanh(double val) {
+    return Value(std::tanh(val));
+}
+
+Value StandardLibrary::mathExp(double val) {
+    return Value(std::exp(val));
+}
+
+Value StandardLibrary::mathLog(double val) {
+    return Value(std::log(val));
+}
+
+Value StandardLibrary::mathLog10(double val) {
+    return Value(std::log10(val));
+}
+
+Value StandardLibrary::mathLog2(double val) {
+    return Value(std::log2(val));
+}
+
+Value StandardLibrary::mathDegrees(double rad) {
+    return Value(rad * (180.0 / 3.14159265358979323846));
+}
+
+Value StandardLibrary::mathRadians(double deg) {
+    return Value(deg * (3.14159265358979323846 / 180.0));
+}
+
+Value StandardLibrary::mathHypot(double x, double y) {
+    return Value(std::hypot(x, y));
+}
+
+Value StandardLibrary::mathTrunc(double val) {
+    return Value(std::trunc(val));
+}
+
+Value StandardLibrary::mathClamp(double val, double minVal, double maxVal) {
+    if (minVal > maxVal) std::swap(minVal, maxVal);
+    return Value(std::clamp(val, minVal, maxVal));
+}
+
 Value StandardLibrary::timeSleep(int64_t ms) {
-#ifdef _WIN32
-    Sleep(static_cast<DWORD>(ms));
-#else
-    usleep(static_cast<useconds_t>(ms * 1000));
-#endif
+    if (ms > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+    }
+    return Value();
+}
+
+Value StandardLibrary::timeSleepS(double seconds) {
+    if (seconds > 0.0) {
+        std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
+    }
     return Value();
 }
 
@@ -761,5 +845,670 @@ Value StandardLibrary::timeNow() {
     auto now = std::chrono::system_clock::now().time_since_epoch();
     int64_t ms = std::chrono::duration_cast<std::chrono::milliseconds>(now).count();
     return Value(ms);
+}
+
+Value StandardLibrary::timeTime() {
+    auto now = std::chrono::system_clock::now().time_since_epoch();
+    double sec = std::chrono::duration<double>(now).count();
+    return Value(sec);
+}
+
+Value StandardLibrary::timeTimeNs() {
+    auto now = std::chrono::high_resolution_clock::now().time_since_epoch();
+    int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+    return Value(ns);
+}
+
+Value StandardLibrary::timeFormat(const std::string& fmt) {
+    std::string actualFmt = fmt.empty() ? "%Y-%m-%d %H:%M:%S" : fmt;
+    std::time_t t = std::time(nullptr);
+    std::tm tmVal{};
+#ifdef _WIN32
+    localtime_s(&tmVal, &t);
+#else
+    localtime_r(&t, &tmVal);
+#endif
+    char buf[256];
+    if (std::strftime(buf, sizeof(buf), actualFmt.c_str(), &tmVal)) {
+        return Value(std::string(buf));
+    }
+    return Value("");
+}
+
+// OS & Path Implementation
+Value StandardLibrary::osName() {
+#ifdef _WIN32
+    return Value("nt");
+#else
+    return Value("posix");
+#endif
+}
+
+Value StandardLibrary::osSep() {
+#ifdef _WIN32
+    return Value("\\");
+#else
+    return Value("/");
+#endif
+}
+
+Value StandardLibrary::osLinesep() {
+#ifdef _WIN32
+    return Value("\r\n");
+#else
+    return Value("\n");
+#endif
+}
+
+Value StandardLibrary::osDevnull() {
+#ifdef _WIN32
+    return Value("NUL");
+#else
+    return Value("/dev/null");
+#endif
+}
+
+Value StandardLibrary::osGetcwd() {
+    try {
+        return Value(std::filesystem::current_path().string());
+    } catch (...) {
+        return Value("");
+    }
+}
+
+Value StandardLibrary::osChdir(const std::string& path) {
+    try {
+        std::filesystem::current_path(path);
+        return Value(true);
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osListdir(const std::string& path) {
+    std::string target = path.empty() ? "." : path;
+    std::vector<Value> entries;
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(target)) {
+            entries.push_back(Value(entry.path().filename().string()));
+        }
+    } catch (...) {}
+    return Value(entries);
+}
+
+Value StandardLibrary::osMkdir(const std::string& path) {
+    try {
+        return Value(std::filesystem::create_directory(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osMakedirs(const std::string& path) {
+    try {
+        return Value(std::filesystem::create_directories(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osRemove(const std::string& path) {
+    try {
+        return Value(std::filesystem::remove(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osRmdir(const std::string& path) {
+    try {
+        return Value(std::filesystem::remove(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osRemovedirs(const std::string& path) {
+    try {
+        return Value(static_cast<int64_t>(std::filesystem::remove_all(path)));
+    } catch (...) {
+        return Value(static_cast<int64_t>(0));
+    }
+}
+
+Value StandardLibrary::osRename(const std::string& src, const std::string& dst) {
+    try {
+        std::filesystem::rename(src, dst);
+        return Value(true);
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osSystem(const std::string& cmd) {
+    int res = std::system(cmd.c_str());
+#ifndef _WIN32
+    if (WIFEXITED(res)) res = WEXITSTATUS(res);
+#endif
+    return Value(static_cast<int64_t>(res));
+}
+
+Value StandardLibrary::osPopen(const std::string& cmd) {
+#ifdef _WIN32
+    FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+    FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+    if (!pipe) return Value("");
+    std::string out;
+    char buffer[4096];
+    while (fgets(buffer, sizeof(buffer), pipe)) {
+        out.append(buffer);
+    }
+#ifdef _WIN32
+    _pclose(pipe);
+#else
+    pclose(pipe);
+#endif
+    return Value(out);
+}
+
+Value StandardLibrary::osGetenv(const std::string& key, const std::string& defVal) {
+    const char* val = std::getenv(key.c_str());
+    if (val) return Value(std::string(val));
+    return Value(defVal);
+}
+
+Value StandardLibrary::osSetenv(const std::string& key, const std::string& val) {
+#ifdef _WIN32
+    return Value(SetEnvironmentVariableA(key.c_str(), val.c_str()) != 0);
+#else
+    return Value(setenv(key.c_str(), val.c_str(), 1) == 0);
+#endif
+}
+
+Value StandardLibrary::osUnsetenv(const std::string& key) {
+#ifdef _WIN32
+    return Value(SetEnvironmentVariableA(key.c_str(), NULL) != 0);
+#else
+    return Value(unsetenv(key.c_str()) == 0);
+#endif
+}
+
+Value StandardLibrary::osGetpid() {
+#ifdef _WIN32
+    return Value(static_cast<int64_t>(GetCurrentProcessId()));
+#else
+    return Value(static_cast<int64_t>(getpid()));
+#endif
+}
+
+Value StandardLibrary::osCpuCount() {
+    unsigned int c = std::thread::hardware_concurrency();
+    return Value(static_cast<int64_t>(c > 0 ? c : 1));
+}
+
+Value StandardLibrary::osExit(int64_t code) {
+    std::exit(static_cast<int>(code));
+    return Value();
+}
+
+Value StandardLibrary::osPathExists(const std::string& path) {
+    try {
+        return Value(std::filesystem::exists(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osPathIsFile(const std::string& path) {
+    try {
+        return Value(std::filesystem::is_regular_file(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osPathIsDir(const std::string& path) {
+    try {
+        return Value(std::filesystem::is_directory(path));
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+Value StandardLibrary::osPathGetSize(const std::string& path) {
+    try {
+        return Value(static_cast<int64_t>(std::filesystem::file_size(path)));
+    } catch (...) {
+        return Value(static_cast<int64_t>(0));
+    }
+}
+
+Value StandardLibrary::osPathJoin(const std::vector<Value>& args) {
+    std::filesystem::path p;
+    for (const auto& a : args) {
+        if (p.empty()) p = a.toString();
+        else p /= a.toString();
+    }
+    return Value(p.string());
+}
+
+Value StandardLibrary::osPathBasename(const std::string& path) {
+    try {
+        return Value(std::filesystem::path(path).filename().string());
+    } catch (...) {
+        return Value("");
+    }
+}
+
+Value StandardLibrary::osPathDirname(const std::string& path) {
+    try {
+        return Value(std::filesystem::path(path).parent_path().string());
+    } catch (...) {
+        return Value("");
+    }
+}
+
+Value StandardLibrary::osPathAbspath(const std::string& path) {
+    try {
+        return Value(std::filesystem::absolute(path).lexically_normal().string());
+    } catch (...) {
+        return Value(path);
+    }
+}
+
+Value StandardLibrary::osPathSplitext(const std::string& path) {
+    try {
+        std::filesystem::path p(path);
+        std::string ext = p.extension().string();
+        std::string stem = p.parent_path().empty() ? p.stem().string() : (p.parent_path() / p.stem()).string();
+        std::vector<Value> res = { Value(stem), Value(ext) };
+        return Value(res);
+    } catch (...) {
+        std::vector<Value> res = { Value(path), Value("") };
+        return Value(res);
+    }
+}
+
+Value StandardLibrary::osPathIsabs(const std::string& path) {
+    try {
+        return Value(std::filesystem::path(path).is_absolute());
+    } catch (...) {
+        return Value(false);
+    }
+}
+
+// Sys Implementation
+Value StandardLibrary::sysPlatform() {
+#ifdef _WIN32
+    return Value("win32");
+#elif defined(__APPLE__)
+    return Value("darwin");
+#elif defined(__ANDROID__)
+    return Value("android");
+#else
+    return Value("linux");
+#endif
+}
+
+Value StandardLibrary::sysVersion() {
+    return Value("2.0.0");
+}
+
+Value StandardLibrary::sysArgv() {
+    std::vector<Value> v;
+    for (const auto& a : args_) v.push_back(Value(a));
+    return Value(v);
+}
+
+Value StandardLibrary::sysExit(int64_t code) {
+    std::exit(static_cast<int>(code));
+    return Value();
+}
+
+Value StandardLibrary::sysStdoutWrite(const std::string& s) {
+    std::cout << s;
+    std::cout.flush();
+    return Value(static_cast<int64_t>(s.size()));
+}
+
+Value StandardLibrary::sysStderrWrite(const std::string& s) {
+    std::cerr << s;
+    std::cerr.flush();
+    return Value(static_cast<int64_t>(s.size()));
+}
+
+// String Utilities Implementation
+Value StandardLibrary::strSplit(const std::string& s, const std::string& delim) {
+    std::vector<Value> res;
+    if (delim.empty()) {
+        for (char c : s) res.push_back(Value(std::string(1, c)));
+        return Value(res);
+    }
+    size_t start = 0;
+    size_t pos = 0;
+    while ((pos = s.find(delim, start)) != std::string::npos) {
+        res.push_back(Value(s.substr(start, pos - start)));
+        start = pos + delim.size();
+    }
+    res.push_back(Value(s.substr(start)));
+    return Value(res);
+}
+
+Value StandardLibrary::strJoin(const std::string& delim, const Value& listVal) {
+    if (!listVal.isList() || !listVal.listVal) return Value("");
+    std::string res;
+    bool first = true;
+    for (const auto& item : *listVal.listVal) {
+        if (!first) res += delim;
+        first = false;
+        res += item.toString();
+    }
+    return Value(res);
+}
+
+Value StandardLibrary::strReplace(const std::string& s, const std::string& oldStr, const std::string& newStr) {
+    if (oldStr.empty()) return Value(s);
+    std::string res;
+    size_t start = 0;
+    size_t pos = 0;
+    while ((pos = s.find(oldStr, start)) != std::string::npos) {
+        res.append(s, start, pos - start);
+        res.append(newStr);
+        start = pos + oldStr.size();
+    }
+    res.append(s, start, s.size() - start);
+    return Value(res);
+}
+
+Value StandardLibrary::strTrim(const std::string& s) {
+    size_t start = 0;
+    while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) start++;
+    size_t end = s.size();
+    while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
+    return Value(s.substr(start, end - start));
+}
+
+Value StandardLibrary::strStartsWith(const std::string& s, const std::string& prefix) {
+    return Value(s.rfind(prefix, 0) == 0);
+}
+
+Value StandardLibrary::strEndsWith(const std::string& s, const std::string& suffix) {
+    if (suffix.size() > s.size()) return Value(false);
+    return Value(s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0);
+}
+
+Value StandardLibrary::strContains(const std::string& s, const std::string& sub) {
+    return Value(s.find(sub) != std::string::npos);
+}
+
+Value StandardLibrary::strFind(const std::string& s, const std::string& sub) {
+    size_t pos = s.find(sub);
+    if (pos == std::string::npos) return Value(static_cast<int64_t>(-1));
+    return Value(static_cast<int64_t>(pos));
+}
+
+// JSON Serialization & Parsing Implementation
+static void jsonDumpValue(const Value& val, std::string& out) {
+    switch (val.type) {
+        case ValueType::NIL:
+            out += "null";
+            break;
+        case ValueType::BOOL:
+            out += val.boolVal ? "true" : "false";
+            break;
+        case ValueType::INT:
+            out += std::to_string(val.intVal);
+            break;
+        case ValueType::FLOAT: {
+            if (std::isnan(val.floatVal) || std::isinf(val.floatVal)) {
+                out += "null";
+            } else {
+                std::ostringstream ss;
+                ss << val.floatVal;
+                out += ss.str();
+            }
+            break;
+        }
+        case ValueType::STRING:
+        case ValueType::FUNCTION: {
+            out += "\"";
+            for (char c : val.strVal) {
+                switch (c) {
+                    case '"': out += "\\\""; break;
+                    case '\\': out += "\\\\"; break;
+                    case '\b': out += "\\b"; break;
+                    case '\f': out += "\\f"; break;
+                    case '\n': out += "\\n"; break;
+                    case '\r': out += "\\r"; break;
+                    case '\t': out += "\\t"; break;
+                    default:
+                        if (static_cast<unsigned char>(c) < 0x20) {
+                            char buf[8];
+                            snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+                            out += buf;
+                        } else {
+                            out += c;
+                        }
+                        break;
+                }
+            }
+            out += "\"";
+            break;
+        }
+        case ValueType::LIST: {
+            out += "[";
+            if (val.listVal) {
+                for (size_t i = 0; i < val.listVal->size(); ++i) {
+                    if (i > 0) out += ", ";
+                    jsonDumpValue((*val.listVal)[i], out);
+                }
+            }
+            out += "]";
+            break;
+        }
+        case ValueType::OBJECT: {
+            out += "{";
+            if (val.objVal) {
+                bool first = true;
+                for (const auto& kv : *val.objVal) {
+                    if (!first) out += ", ";
+                    first = false;
+                    Value k(kv.first);
+                    jsonDumpValue(k, out);
+                    out += ": ";
+                    jsonDumpValue(kv.second, out);
+                }
+            }
+            out += "}";
+            break;
+        }
+    }
+}
+
+Value StandardLibrary::jsonDumps(const Value& val) {
+    std::string out;
+    jsonDumpValue(val, out);
+    return Value(out);
+}
+
+class FastJsonParser {
+    const std::string& src_;
+    size_t pos_ = 0;
+
+    void skipWhitespace() {
+        while (pos_ < src_.size() && std::isspace(static_cast<unsigned char>(src_[pos_]))) {
+            pos_++;
+        }
+    }
+
+    char peek() const {
+        if (pos_ >= src_.size()) return '\0';
+        return src_[pos_];
+    }
+
+    char advance() {
+        return src_[pos_++];
+    }
+
+    bool match(char expected) {
+        if (pos_ < src_.size() && src_[pos_] == expected) {
+            pos_++;
+            return true;
+        }
+        return false;
+    }
+
+public:
+    FastJsonParser(const std::string& s) : src_(s), pos_(0) {}
+
+    Value parse() {
+        skipWhitespace();
+        if (pos_ >= src_.size()) return Value();
+        return parseValue();
+    }
+
+    Value parseValue() {
+        skipWhitespace();
+        char c = peek();
+        if (c == '"') return parseString();
+        if (c == '{') return parseObject();
+        if (c == '[') return parseArray();
+        if (c == 't' || c == 'f') return parseBool();
+        if (c == 'n') return parseNull();
+        if (c == '-' || std::isdigit(static_cast<unsigned char>(c))) return parseNumber();
+        return Value();
+    }
+
+    Value parseString() {
+        if (!match('"')) return Value("");
+        std::string s;
+        while (pos_ < src_.size()) {
+            char c = advance();
+            if (c == '"') return Value(s);
+            if (c == '\\' && pos_ < src_.size()) {
+                char esc = advance();
+                switch (esc) {
+                    case '"': s += '"'; break;
+                    case '\\': s += '\\'; break;
+                    case '/': s += '/'; break;
+                    case 'b': s += '\b'; break;
+                    case 'f': s += '\f'; break;
+                    case 'n': s += '\n'; break;
+                    case 'r': s += '\r'; break;
+                    case 't': s += '\t'; break;
+                    case 'u': {
+                        if (pos_ + 4 <= src_.size()) {
+                            std::string hexStr = src_.substr(pos_, 4);
+                            pos_ += 4;
+                            try {
+                                uint32_t codepoint = std::stoul(hexStr, nullptr, 16);
+                                if (codepoint <= 0x7F) {
+                                    s += static_cast<char>(codepoint);
+                                } else if (codepoint <= 0x7FF) {
+                                    s += static_cast<char>(0xC0 | ((codepoint >> 6) & 0x1F));
+                                    s += static_cast<char>(0x80 | (codepoint & 0x3F));
+                                } else {
+                                    s += static_cast<char>(0xE0 | ((codepoint >> 12) & 0x0F));
+                                    s += static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F));
+                                    s += static_cast<char>(0x80 | (codepoint & 0x3F));
+                                }
+                            } catch (...) {}
+                        }
+                        break;
+                    }
+                    default: s += esc; break;
+                }
+            } else {
+                s += c;
+            }
+        }
+        return Value(s);
+    }
+
+    Value parseNumber() {
+        size_t start = pos_;
+        if (peek() == '-') advance();
+        while (std::isdigit(static_cast<unsigned char>(peek()))) advance();
+        bool isFloat = false;
+        if (peek() == '.') {
+            isFloat = true;
+            advance();
+            while (std::isdigit(static_cast<unsigned char>(peek()))) advance();
+        }
+        if (peek() == 'e' || peek() == 'E') {
+            isFloat = true;
+            advance();
+            if (peek() == '+' || peek() == '-') advance();
+            while (std::isdigit(static_cast<unsigned char>(peek()))) advance();
+        }
+        std::string numStr = src_.substr(start, pos_ - start);
+        try {
+            if (isFloat) return Value(std::stod(numStr));
+            return Value(static_cast<int64_t>(std::stoll(numStr)));
+        } catch (...) {
+            return Value(0);
+        }
+    }
+
+    Value parseBool() {
+        if (src_.compare(pos_, 4, "true") == 0) { pos_ += 4; return Value(true); }
+        if (src_.compare(pos_, 5, "false") == 0) { pos_ += 5; return Value(false); }
+        return Value(false);
+    }
+
+    Value parseNull() {
+        if (src_.compare(pos_, 4, "null") == 0) { pos_ += 4; }
+        return Value();
+    }
+
+    Value parseArray() {
+        if (!match('[')) return Value::makeList();
+        std::vector<Value> list;
+        skipWhitespace();
+        if (match(']')) return Value(list);
+        while (pos_ < src_.size()) {
+            list.push_back(parseValue());
+            skipWhitespace();
+            if (match(',')) {
+                skipWhitespace();
+                continue;
+            }
+            if (match(']')) break;
+            advance();
+        }
+        return Value(list);
+    }
+
+    Value parseObject() {
+        if (!match('{')) return Value::makeObject();
+        std::unordered_map<std::string, Value> obj;
+        skipWhitespace();
+        if (match('}')) return Value(obj);
+        while (pos_ < src_.size()) {
+            skipWhitespace();
+            if (peek() != '"') break;
+            Value keyVal = parseString();
+            skipWhitespace();
+            match(':');
+            skipWhitespace();
+            Value val = parseValue();
+            obj[keyVal.toString()] = val;
+            skipWhitespace();
+            if (match(',')) {
+                skipWhitespace();
+                continue;
+            }
+            if (match('}')) break;
+            advance();
+        }
+        return Value(obj);
+    }
+};
+
+Value StandardLibrary::jsonLoads(const std::string& s) {
+    FastJsonParser parser(s);
+    return parser.parse();
 }
 
