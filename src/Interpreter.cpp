@@ -54,6 +54,22 @@ void Interpreter::loadLibrary(const std::string& name) {
         mathObj.setProperty("sin", Value(ValueType::FUNCTION, "math.sin"));
         mathObj.setProperty("cos", Value(ValueType::FUNCTION, "math.cos"));
         mathObj.setProperty("tan", Value(ValueType::FUNCTION, "math.tan"));
+        mathObj.setProperty("asin", Value(ValueType::FUNCTION, "math.asin"));
+        mathObj.setProperty("acos", Value(ValueType::FUNCTION, "math.acos"));
+        mathObj.setProperty("atan", Value(ValueType::FUNCTION, "math.atan"));
+        mathObj.setProperty("atan2", Value(ValueType::FUNCTION, "math.atan2"));
+        mathObj.setProperty("sinh", Value(ValueType::FUNCTION, "math.sinh"));
+        mathObj.setProperty("cosh", Value(ValueType::FUNCTION, "math.cosh"));
+        mathObj.setProperty("tanh", Value(ValueType::FUNCTION, "math.tanh"));
+        mathObj.setProperty("exp", Value(ValueType::FUNCTION, "math.exp"));
+        mathObj.setProperty("log", Value(ValueType::FUNCTION, "math.log"));
+        mathObj.setProperty("log10", Value(ValueType::FUNCTION, "math.log10"));
+        mathObj.setProperty("log2", Value(ValueType::FUNCTION, "math.log2"));
+        mathObj.setProperty("degrees", Value(ValueType::FUNCTION, "math.degrees"));
+        mathObj.setProperty("radians", Value(ValueType::FUNCTION, "math.radians"));
+        mathObj.setProperty("hypot", Value(ValueType::FUNCTION, "math.hypot"));
+        mathObj.setProperty("trunc", Value(ValueType::FUNCTION, "math.trunc"));
+        mathObj.setProperty("clamp", Value(ValueType::FUNCTION, "math.clamp"));
         mathObj.setProperty("abs", Value(ValueType::FUNCTION, "math.abs"));
         mathObj.setProperty("floor", Value(ValueType::FUNCTION, "math.floor"));
         mathObj.setProperty("ceil", Value(ValueType::FUNCTION, "math.ceil"));
@@ -65,6 +81,10 @@ void Interpreter::loadLibrary(const std::string& name) {
         mathObj.setProperty("random_seed", Value(ValueType::FUNCTION, "math.random_seed"));
         mathObj.setProperty("randomSeed", Value(ValueType::FUNCTION, "math.random_seed"));
         mathObj.setProperty("seed", Value(ValueType::FUNCTION, "math.random_seed"));
+        mathObj.setProperty("pi", Value(3.14159265358979323846));
+        mathObj.setProperty("e", Value(2.71828182845904523536));
+        mathObj.setProperty("tau", Value(6.28318530717958647692));
+        mathObj.setProperty("inf", Value(std::numeric_limits<double>::infinity()));
         globalEnv_->assign("math", mathObj);
         globalEnv_->assign("random", Value(ValueType::FUNCTION, "math.random"));
         globalEnv_->assign("random_seed", Value(ValueType::FUNCTION, "math.random_seed"));
@@ -73,6 +93,10 @@ void Interpreter::loadLibrary(const std::string& name) {
         Value timeObj = Value::makeObject();
         timeObj.setProperty("now", Value(ValueType::FUNCTION, "time.now"));
         timeObj.setProperty("sleep", Value(ValueType::FUNCTION, "time.sleep"));
+        timeObj.setProperty("sleep_s", Value(ValueType::FUNCTION, "time.sleep_s"));
+        timeObj.setProperty("time", Value(ValueType::FUNCTION, "time.time"));
+        timeObj.setProperty("time_ns", Value(ValueType::FUNCTION, "time.time_ns"));
+        timeObj.setProperty("format", Value(ValueType::FUNCTION, "time.format"));
         globalEnv_->assign("time", timeObj);
     } else if (name == "net" || name == "http") {
         Value netObj = Value::makeObject();
@@ -91,8 +115,92 @@ void Interpreter::loadLibrary(const std::string& name) {
         strObj.setProperty("upper", Value(ValueType::FUNCTION, "upper"));
         strObj.setProperty("case_sensitive", Value(ValueType::FUNCTION, "case_sensitive"));
         strObj.setProperty("incase_sensitive", Value(ValueType::FUNCTION, "incase_sensitive"));
+        strObj.setProperty("split", Value(ValueType::FUNCTION, "str.split"));
+        strObj.setProperty("join", Value(ValueType::FUNCTION, "str.join"));
+        strObj.setProperty("replace", Value(ValueType::FUNCTION, "str.replace"));
+        strObj.setProperty("trim", Value(ValueType::FUNCTION, "str.trim"));
+        strObj.setProperty("startswith", Value(ValueType::FUNCTION, "str.startswith"));
+        strObj.setProperty("endswith", Value(ValueType::FUNCTION, "str.endswith"));
+        strObj.setProperty("contains", Value(ValueType::FUNCTION, "str.contains"));
+        strObj.setProperty("find", Value(ValueType::FUNCTION, "str.find"));
         globalEnv_->assign("str", strObj);
         globalEnv_->assign("string", strObj);
+    } else if (name == "os") {
+        Value osObj = Value::makeObject();
+        osObj.setProperty("name", StandardLibrary::osName());
+        osObj.setProperty("sep", StandardLibrary::osSep());
+        osObj.setProperty("linesep", StandardLibrary::osLinesep());
+        osObj.setProperty("devnull", StandardLibrary::osDevnull());
+        osObj.setProperty("getcwd", Value(ValueType::FUNCTION, "os.getcwd"));
+        osObj.setProperty("chdir", Value(ValueType::FUNCTION, "os.chdir"));
+        osObj.setProperty("listdir", Value(ValueType::FUNCTION, "os.listdir"));
+        osObj.setProperty("mkdir", Value(ValueType::FUNCTION, "os.mkdir"));
+        osObj.setProperty("makedirs", Value(ValueType::FUNCTION, "os.makedirs"));
+        osObj.setProperty("remove", Value(ValueType::FUNCTION, "os.remove"));
+        osObj.setProperty("unlink", Value(ValueType::FUNCTION, "os.remove"));
+        osObj.setProperty("rmdir", Value(ValueType::FUNCTION, "os.rmdir"));
+        osObj.setProperty("removedirs", Value(ValueType::FUNCTION, "os.removedirs"));
+        osObj.setProperty("rmtree", Value(ValueType::FUNCTION, "os.rmtree"));
+        osObj.setProperty("rename", Value(ValueType::FUNCTION, "os.rename"));
+        osObj.setProperty("system", Value(ValueType::FUNCTION, "os.system"));
+        osObj.setProperty("popen", Value(ValueType::FUNCTION, "os.popen"));
+        osObj.setProperty("getenv", Value(ValueType::FUNCTION, "os.getenv"));
+        osObj.setProperty("setenv", Value(ValueType::FUNCTION, "os.setenv"));
+        osObj.setProperty("putenv", Value(ValueType::FUNCTION, "os.setenv"));
+        osObj.setProperty("unsetenv", Value(ValueType::FUNCTION, "os.unsetenv"));
+        osObj.setProperty("getpid", Value(ValueType::FUNCTION, "os.getpid"));
+        osObj.setProperty("cpu_count", Value(ValueType::FUNCTION, "os.cpu_count"));
+        osObj.setProperty("exit", Value(ValueType::FUNCTION, "os.exit"));
+        osObj.setProperty("exists", Value(ValueType::FUNCTION, "os.path.exists"));
+        osObj.setProperty("isfile", Value(ValueType::FUNCTION, "os.path.isfile"));
+        osObj.setProperty("isdir", Value(ValueType::FUNCTION, "os.path.isdir"));
+        osObj.setProperty("getsize", Value(ValueType::FUNCTION, "os.path.getsize"));
+
+        Value pathObj = Value::makeObject();
+        pathObj.setProperty("exists", Value(ValueType::FUNCTION, "os.path.exists"));
+        pathObj.setProperty("isfile", Value(ValueType::FUNCTION, "os.path.isfile"));
+        pathObj.setProperty("isdir", Value(ValueType::FUNCTION, "os.path.isdir"));
+        pathObj.setProperty("getsize", Value(ValueType::FUNCTION, "os.path.getsize"));
+        pathObj.setProperty("join", Value(ValueType::FUNCTION, "os.path.join"));
+        pathObj.setProperty("basename", Value(ValueType::FUNCTION, "os.path.basename"));
+        pathObj.setProperty("dirname", Value(ValueType::FUNCTION, "os.path.dirname"));
+        pathObj.setProperty("abspath", Value(ValueType::FUNCTION, "os.path.abspath"));
+        pathObj.setProperty("splitext", Value(ValueType::FUNCTION, "os.path.splitext"));
+        pathObj.setProperty("isabs", Value(ValueType::FUNCTION, "os.path.isabs"));
+
+        osObj.setProperty("path", pathObj);
+        globalEnv_->assign("os", osObj);
+        globalEnv_->assign("path", pathObj);
+    } else if (name == "path") {
+        Value pathObj = Value::makeObject();
+        pathObj.setProperty("exists", Value(ValueType::FUNCTION, "os.path.exists"));
+        pathObj.setProperty("isfile", Value(ValueType::FUNCTION, "os.path.isfile"));
+        pathObj.setProperty("isdir", Value(ValueType::FUNCTION, "os.path.isdir"));
+        pathObj.setProperty("getsize", Value(ValueType::FUNCTION, "os.path.getsize"));
+        pathObj.setProperty("join", Value(ValueType::FUNCTION, "os.path.join"));
+        pathObj.setProperty("basename", Value(ValueType::FUNCTION, "os.path.basename"));
+        pathObj.setProperty("dirname", Value(ValueType::FUNCTION, "os.path.dirname"));
+        pathObj.setProperty("abspath", Value(ValueType::FUNCTION, "os.path.abspath"));
+        pathObj.setProperty("splitext", Value(ValueType::FUNCTION, "os.path.splitext"));
+        pathObj.setProperty("isabs", Value(ValueType::FUNCTION, "os.path.isabs"));
+        globalEnv_->assign("path", pathObj);
+    } else if (name == "sys") {
+        Value sysObj = Value::makeObject();
+        sysObj.setProperty("platform", StandardLibrary::sysPlatform());
+        sysObj.setProperty("version", StandardLibrary::sysVersion());
+        sysObj.setProperty("argv", StandardLibrary::sysArgv());
+        sysObj.setProperty("exit", Value(ValueType::FUNCTION, "sys.exit"));
+        sysObj.setProperty("getpid", Value(ValueType::FUNCTION, "sys.getpid"));
+        sysObj.setProperty("stdout_write", Value(ValueType::FUNCTION, "sys.stdout_write"));
+        sysObj.setProperty("stderr_write", Value(ValueType::FUNCTION, "sys.stderr_write"));
+        globalEnv_->assign("sys", sysObj);
+    } else if (name == "json") {
+        Value jsonObj = Value::makeObject();
+        jsonObj.setProperty("dumps", Value(ValueType::FUNCTION, "json.dumps"));
+        jsonObj.setProperty("loads", Value(ValueType::FUNCTION, "json.loads"));
+        jsonObj.setProperty("stringify", Value(ValueType::FUNCTION, "json.dumps"));
+        jsonObj.setProperty("parse", Value(ValueType::FUNCTION, "json.loads"));
+        globalEnv_->assign("json", jsonObj);
     }
 }
 
@@ -264,7 +372,7 @@ Value Interpreter::execute(Stmt* stmt) {
 
     if (auto* useStmt = dynamic_cast<UseStmt*>(stmt)) {
         std::string mod = useStmt->moduleName;
-        if (mod == "io" || mod == "math" || mod == "time" || mod == "net" || mod == "http" || mod == "gui" || mod == "str" || mod == "string") {
+        if (mod == "io" || mod == "math" || mod == "time" || mod == "net" || mod == "http" || mod == "gui" || mod == "str" || mod == "string" || mod == "os" || mod == "sys" || mod == "json" || mod == "path") {
             loadLibrary(mod);
             return Value(true);
         }
@@ -712,8 +820,316 @@ Value Interpreter::evaluate(Expr* expr) {
             return StandardLibrary::timeSleep(ms);
         }
 
+        if (name == "math.asin") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathAsin(val);
+        }
+        if (name == "math.acos") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathAcos(val);
+        }
+        if (name == "math.atan") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathAtan(val);
+        }
+        if (name == "math.atan2") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double y = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            double x = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).asFloat() : 0.0;
+            return StandardLibrary::mathAtan2(y, x);
+        }
+        if (name == "math.sinh") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathSinh(val);
+        }
+        if (name == "math.cosh") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathCosh(val);
+        }
+        if (name == "math.tanh") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathTanh(val);
+        }
+        if (name == "math.exp") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathExp(val);
+        }
+        if (name == "math.log" || name == "math.ln") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathLog(val);
+        }
+        if (name == "math.log10") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathLog10(val);
+        }
+        if (name == "math.log2") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathLog2(val);
+        }
+        if (name == "math.degrees") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathDegrees(val);
+        }
+        if (name == "math.radians") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathRadians(val);
+        }
+        if (name == "math.hypot") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double x = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            double y = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).asFloat() : 0.0;
+            return StandardLibrary::mathHypot(x, y);
+        }
+        if (name == "math.trunc") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double val = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::mathTrunc(val);
+        }
+        if (name == "math.clamp") {
+            if (!isLibraryLoaded("math")) throw std::runtime_error("Library 'math' is not loaded. Please use 'use math' first.");
+            double v = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            double minV = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).asFloat() : 0.0;
+            double maxV = call->arguments.size() >= 3 ? evaluate(call->arguments[2].get()).asFloat() : 0.0;
+            return StandardLibrary::mathClamp(v, minV, maxV);
+        }
+
+        if (name == "time.sleep_s") {
+            if (!isLibraryLoaded("time")) throw std::runtime_error("Library 'time' is not loaded. Please use 'use time' first.");
+            double s = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asFloat() : 0.0;
+            return StandardLibrary::timeSleepS(s);
+        }
+
         if (name == "time.now") {
             return StandardLibrary::timeNow();
+        }
+        if (name == "time.time") {
+            return StandardLibrary::timeTime();
+        }
+        if (name == "time.time_ns") {
+            return StandardLibrary::timeTimeNs();
+        }
+        if (name == "time.format") {
+            std::string fmt = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::timeFormat(fmt);
+        }
+
+        if (name == "str.split") {
+            std::string s = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string delim = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : " ";
+            return StandardLibrary::strSplit(s, delim);
+        }
+        if (name == "str.join") {
+            std::string delim = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            Value listV = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()) : Value::makeList();
+            return StandardLibrary::strJoin(delim, listV);
+        }
+        if (name == "str.replace") {
+            std::string s = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string oldS = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            std::string newS = call->arguments.size() >= 3 ? evaluate(call->arguments[2].get()).toString() : "";
+            return StandardLibrary::strReplace(s, oldS, newS);
+        }
+        if (name == "str.trim") {
+            std::string s = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::strTrim(s);
+        }
+        if (name == "str.startswith") {
+            std::string s = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string prefix = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::strStartsWith(s, prefix);
+        }
+        if (name == "str.endswith") {
+            std::string s = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string suffix = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::strEndsWith(s, suffix);
+        }
+        if (name == "str.contains") {
+            std::string s = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string sub = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::strContains(s, sub);
+        }
+        if (name == "str.find") {
+            std::string s = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string sub = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::strFind(s, sub);
+        }
+
+        if (name == "os.getcwd") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            return StandardLibrary::osGetcwd();
+        }
+        if (name == "os.chdir") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osChdir(p);
+        }
+        if (name == "os.listdir") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : ".";
+            return StandardLibrary::osListdir(p);
+        }
+        if (name == "os.mkdir") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osMkdir(p);
+        }
+        if (name == "os.makedirs") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osMakedirs(p);
+        }
+        if (name == "os.remove" || name == "os.unlink") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osRemove(p);
+        }
+        if (name == "os.rmdir") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osRmdir(p);
+        }
+        if (name == "os.removedirs" || name == "os.rmtree") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osRemovedirs(p);
+        }
+        if (name == "os.rename") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string src = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string dst = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::osRename(src, dst);
+        }
+        if (name == "os.system") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string cmd = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osSystem(cmd);
+        }
+        if (name == "os.popen") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string cmd = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPopen(cmd);
+        }
+        if (name == "os.getenv") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string k = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string defV = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::osGetenv(k, defV);
+        }
+        if (name == "os.setenv" || name == "os.putenv") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string k = call->arguments.size() >= 1 ? evaluate(call->arguments[0].get()).toString() : "";
+            std::string v = call->arguments.size() >= 2 ? evaluate(call->arguments[1].get()).toString() : "";
+            return StandardLibrary::osSetenv(k, v);
+        }
+        if (name == "os.unsetenv") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            std::string k = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osUnsetenv(k);
+        }
+        if (name == "os.getpid") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            return StandardLibrary::osGetpid();
+        }
+        if (name == "os.cpu_count") {
+            if (!isLibraryLoaded("os")) throw std::runtime_error("Library 'os' is not loaded. Please use 'use os' first.");
+            return StandardLibrary::osCpuCount();
+        }
+        if (name == "os.exit") {
+            int64_t codeVal = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asInt() : 0;
+            return StandardLibrary::osExit(codeVal);
+        }
+        if (name == "os.path.exists" || name == "path.exists" || name == "os.exists") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathExists(p);
+        }
+        if (name == "os.path.isfile" || name == "path.isfile" || name == "os.isfile") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathIsFile(p);
+        }
+        if (name == "os.path.isdir" || name == "path.isdir" || name == "os.isdir") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathIsDir(p);
+        }
+        if (name == "os.path.getsize" || name == "path.getsize" || name == "os.getsize") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathGetSize(p);
+        }
+        if (name == "os.path.join" || name == "path.join") {
+            std::vector<Value> jargs;
+            for (const auto& a : call->arguments) jargs.push_back(evaluate(a.get()));
+            return StandardLibrary::osPathJoin(jargs);
+        }
+        if (name == "os.path.basename" || name == "path.basename") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathBasename(p);
+        }
+        if (name == "os.path.dirname" || name == "path.dirname") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathDirname(p);
+        }
+        if (name == "os.path.abspath" || name == "path.abspath") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathAbspath(p);
+        }
+        if (name == "os.path.splitext" || name == "path.splitext") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathSplitext(p);
+        }
+        if (name == "os.path.isabs" || name == "path.isabs") {
+            std::string p = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::osPathIsabs(p);
+        }
+
+        if (name == "sys.platform") {
+            if (!isLibraryLoaded("sys")) throw std::runtime_error("Library 'sys' is not loaded. Please use 'use sys' first.");
+            return StandardLibrary::sysPlatform();
+        }
+        if (name == "sys.version") {
+            if (!isLibraryLoaded("sys")) throw std::runtime_error("Library 'sys' is not loaded. Please use 'use sys' first.");
+            return StandardLibrary::sysVersion();
+        }
+        if (name == "sys.argv") {
+            if (!isLibraryLoaded("sys")) throw std::runtime_error("Library 'sys' is not loaded. Please use 'use sys' first.");
+            return StandardLibrary::sysArgv();
+        }
+        if (name == "sys.exit") {
+            int64_t codeVal = !call->arguments.empty() ? evaluate(call->arguments[0].get()).asInt() : 0;
+            return StandardLibrary::sysExit(codeVal);
+        }
+        if (name == "sys.getpid") {
+            if (!isLibraryLoaded("sys")) throw std::runtime_error("Library 'sys' is not loaded. Please use 'use sys' first.");
+            return StandardLibrary::osGetpid();
+        }
+        if (name == "sys.stdout_write") {
+            std::string s = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::sysStdoutWrite(s);
+        }
+        if (name == "sys.stderr_write") {
+            std::string s = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::sysStderrWrite(s);
+        }
+
+        if (name == "json.dumps" || name == "json.stringify") {
+            if (!isLibraryLoaded("json")) throw std::runtime_error("Library 'json' is not loaded. Please use 'use json' first.");
+            Value v = !call->arguments.empty() ? evaluate(call->arguments[0].get()) : Value();
+            return StandardLibrary::jsonDumps(v);
+        }
+        if (name == "json.loads" || name == "json.parse") {
+            if (!isLibraryLoaded("json")) throw std::runtime_error("Library 'json' is not loaded. Please use 'use json' first.");
+            std::string s = !call->arguments.empty() ? evaluate(call->arguments[0].get()).toString() : "";
+            return StandardLibrary::jsonLoads(s);
         }
 
         if (name == "get" || name == "net.get" || name == "http.get") {

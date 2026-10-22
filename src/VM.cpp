@@ -56,12 +56,30 @@ void VM::loadLibrary(const std::string& name) {
         mathObj.setProperty("sin", Value(ValueType::FUNCTION, "math.sin"));
         mathObj.setProperty("cos", Value(ValueType::FUNCTION, "math.cos"));
         mathObj.setProperty("tan", Value(ValueType::FUNCTION, "math.tan"));
+        mathObj.setProperty("asin", Value(ValueType::FUNCTION, "math.asin"));
+        mathObj.setProperty("acos", Value(ValueType::FUNCTION, "math.acos"));
+        mathObj.setProperty("atan", Value(ValueType::FUNCTION, "math.atan"));
+        mathObj.setProperty("atan2", Value(ValueType::FUNCTION, "math.atan2"));
+        mathObj.setProperty("sinh", Value(ValueType::FUNCTION, "math.sinh"));
+        mathObj.setProperty("cosh", Value(ValueType::FUNCTION, "math.cosh"));
+        mathObj.setProperty("tanh", Value(ValueType::FUNCTION, "math.tanh"));
+        mathObj.setProperty("exp", Value(ValueType::FUNCTION, "math.exp"));
+        mathObj.setProperty("log", Value(ValueType::FUNCTION, "math.log"));
+        mathObj.setProperty("log10", Value(ValueType::FUNCTION, "math.log10"));
+        mathObj.setProperty("log2", Value(ValueType::FUNCTION, "math.log2"));
+        mathObj.setProperty("degrees", Value(ValueType::FUNCTION, "math.degrees"));
+        mathObj.setProperty("radians", Value(ValueType::FUNCTION, "math.radians"));
+        mathObj.setProperty("hypot", Value(ValueType::FUNCTION, "math.hypot"));
+        mathObj.setProperty("trunc", Value(ValueType::FUNCTION, "math.trunc"));
+        mathObj.setProperty("clamp", Value(ValueType::FUNCTION, "math.clamp"));
         mathObj.setProperty("random", Value(ValueType::FUNCTION, "math.random"));
         mathObj.setProperty("random_seed", Value(ValueType::FUNCTION, "math.random_seed"));
         mathObj.setProperty("randomSeed", Value(ValueType::FUNCTION, "math.random_seed"));
         mathObj.setProperty("seed", Value(ValueType::FUNCTION, "math.random_seed"));
         mathObj.setProperty("pi", Value(3.14159265358979323846));
         mathObj.setProperty("e", Value(2.71828182845904523536));
+        mathObj.setProperty("tau", Value(6.28318530717958647692));
+        mathObj.setProperty("inf", Value(std::numeric_limits<double>::infinity()));
         globals_["math"] = mathObj;
         globals_["random"] = Value(ValueType::FUNCTION, "math.random");
         globals_["random_seed"] = Value(ValueType::FUNCTION, "math.random_seed");
@@ -69,7 +87,11 @@ void VM::loadLibrary(const std::string& name) {
     } else if (name == "time") {
         Value timeObj = Value::makeObject();
         timeObj.setProperty("sleep", Value(ValueType::FUNCTION, "time.sleep"));
+        timeObj.setProperty("sleep_s", Value(ValueType::FUNCTION, "time.sleep_s"));
         timeObj.setProperty("now", Value(ValueType::FUNCTION, "time.now"));
+        timeObj.setProperty("time", Value(ValueType::FUNCTION, "time.time"));
+        timeObj.setProperty("time_ns", Value(ValueType::FUNCTION, "time.time_ns"));
+        timeObj.setProperty("format", Value(ValueType::FUNCTION, "time.format"));
         globals_["time"] = timeObj;
     } else if (name == "net" || name == "http") {
         Value netObj = Value::makeObject();
@@ -88,8 +110,92 @@ void VM::loadLibrary(const std::string& name) {
         strObj.setProperty("upper", Value(ValueType::FUNCTION, "upper"));
         strObj.setProperty("case_sensitive", Value(ValueType::FUNCTION, "case_sensitive"));
         strObj.setProperty("incase_sensitive", Value(ValueType::FUNCTION, "incase_sensitive"));
+        strObj.setProperty("split", Value(ValueType::FUNCTION, "str.split"));
+        strObj.setProperty("join", Value(ValueType::FUNCTION, "str.join"));
+        strObj.setProperty("replace", Value(ValueType::FUNCTION, "str.replace"));
+        strObj.setProperty("trim", Value(ValueType::FUNCTION, "str.trim"));
+        strObj.setProperty("startswith", Value(ValueType::FUNCTION, "str.startswith"));
+        strObj.setProperty("endswith", Value(ValueType::FUNCTION, "str.endswith"));
+        strObj.setProperty("contains", Value(ValueType::FUNCTION, "str.contains"));
+        strObj.setProperty("find", Value(ValueType::FUNCTION, "str.find"));
         globals_["str"] = strObj;
         globals_["string"] = strObj;
+    } else if (name == "os") {
+        Value osObj = Value::makeObject();
+        osObj.setProperty("name", StandardLibrary::osName());
+        osObj.setProperty("sep", StandardLibrary::osSep());
+        osObj.setProperty("linesep", StandardLibrary::osLinesep());
+        osObj.setProperty("devnull", StandardLibrary::osDevnull());
+        osObj.setProperty("getcwd", Value(ValueType::FUNCTION, "os.getcwd"));
+        osObj.setProperty("chdir", Value(ValueType::FUNCTION, "os.chdir"));
+        osObj.setProperty("listdir", Value(ValueType::FUNCTION, "os.listdir"));
+        osObj.setProperty("mkdir", Value(ValueType::FUNCTION, "os.mkdir"));
+        osObj.setProperty("makedirs", Value(ValueType::FUNCTION, "os.makedirs"));
+        osObj.setProperty("remove", Value(ValueType::FUNCTION, "os.remove"));
+        osObj.setProperty("unlink", Value(ValueType::FUNCTION, "os.remove"));
+        osObj.setProperty("rmdir", Value(ValueType::FUNCTION, "os.rmdir"));
+        osObj.setProperty("removedirs", Value(ValueType::FUNCTION, "os.removedirs"));
+        osObj.setProperty("rmtree", Value(ValueType::FUNCTION, "os.rmtree"));
+        osObj.setProperty("rename", Value(ValueType::FUNCTION, "os.rename"));
+        osObj.setProperty("system", Value(ValueType::FUNCTION, "os.system"));
+        osObj.setProperty("popen", Value(ValueType::FUNCTION, "os.popen"));
+        osObj.setProperty("getenv", Value(ValueType::FUNCTION, "os.getenv"));
+        osObj.setProperty("setenv", Value(ValueType::FUNCTION, "os.setenv"));
+        osObj.setProperty("putenv", Value(ValueType::FUNCTION, "os.setenv"));
+        osObj.setProperty("unsetenv", Value(ValueType::FUNCTION, "os.unsetenv"));
+        osObj.setProperty("getpid", Value(ValueType::FUNCTION, "os.getpid"));
+        osObj.setProperty("cpu_count", Value(ValueType::FUNCTION, "os.cpu_count"));
+        osObj.setProperty("exit", Value(ValueType::FUNCTION, "os.exit"));
+        osObj.setProperty("exists", Value(ValueType::FUNCTION, "os.path.exists"));
+        osObj.setProperty("isfile", Value(ValueType::FUNCTION, "os.path.isfile"));
+        osObj.setProperty("isdir", Value(ValueType::FUNCTION, "os.path.isdir"));
+        osObj.setProperty("getsize", Value(ValueType::FUNCTION, "os.path.getsize"));
+
+        Value pathObj = Value::makeObject();
+        pathObj.setProperty("exists", Value(ValueType::FUNCTION, "os.path.exists"));
+        pathObj.setProperty("isfile", Value(ValueType::FUNCTION, "os.path.isfile"));
+        pathObj.setProperty("isdir", Value(ValueType::FUNCTION, "os.path.isdir"));
+        pathObj.setProperty("getsize", Value(ValueType::FUNCTION, "os.path.getsize"));
+        pathObj.setProperty("join", Value(ValueType::FUNCTION, "os.path.join"));
+        pathObj.setProperty("basename", Value(ValueType::FUNCTION, "os.path.basename"));
+        pathObj.setProperty("dirname", Value(ValueType::FUNCTION, "os.path.dirname"));
+        pathObj.setProperty("abspath", Value(ValueType::FUNCTION, "os.path.abspath"));
+        pathObj.setProperty("splitext", Value(ValueType::FUNCTION, "os.path.splitext"));
+        pathObj.setProperty("isabs", Value(ValueType::FUNCTION, "os.path.isabs"));
+
+        osObj.setProperty("path", pathObj);
+        globals_["os"] = osObj;
+        globals_["path"] = pathObj;
+    } else if (name == "path") {
+        Value pathObj = Value::makeObject();
+        pathObj.setProperty("exists", Value(ValueType::FUNCTION, "os.path.exists"));
+        pathObj.setProperty("isfile", Value(ValueType::FUNCTION, "os.path.isfile"));
+        pathObj.setProperty("isdir", Value(ValueType::FUNCTION, "os.path.isdir"));
+        pathObj.setProperty("getsize", Value(ValueType::FUNCTION, "os.path.getsize"));
+        pathObj.setProperty("join", Value(ValueType::FUNCTION, "os.path.join"));
+        pathObj.setProperty("basename", Value(ValueType::FUNCTION, "os.path.basename"));
+        pathObj.setProperty("dirname", Value(ValueType::FUNCTION, "os.path.dirname"));
+        pathObj.setProperty("abspath", Value(ValueType::FUNCTION, "os.path.abspath"));
+        pathObj.setProperty("splitext", Value(ValueType::FUNCTION, "os.path.splitext"));
+        pathObj.setProperty("isabs", Value(ValueType::FUNCTION, "os.path.isabs"));
+        globals_["path"] = pathObj;
+    } else if (name == "sys") {
+        Value sysObj = Value::makeObject();
+        sysObj.setProperty("platform", StandardLibrary::sysPlatform());
+        sysObj.setProperty("version", StandardLibrary::sysVersion());
+        sysObj.setProperty("argv", StandardLibrary::sysArgv());
+        sysObj.setProperty("exit", Value(ValueType::FUNCTION, "sys.exit"));
+        sysObj.setProperty("getpid", Value(ValueType::FUNCTION, "sys.getpid"));
+        sysObj.setProperty("stdout_write", Value(ValueType::FUNCTION, "sys.stdout_write"));
+        sysObj.setProperty("stderr_write", Value(ValueType::FUNCTION, "sys.stderr_write"));
+        globals_["sys"] = sysObj;
+    } else if (name == "json") {
+        Value jsonObj = Value::makeObject();
+        jsonObj.setProperty("dumps", Value(ValueType::FUNCTION, "json.dumps"));
+        jsonObj.setProperty("loads", Value(ValueType::FUNCTION, "json.loads"));
+        jsonObj.setProperty("stringify", Value(ValueType::FUNCTION, "json.dumps"));
+        jsonObj.setProperty("parse", Value(ValueType::FUNCTION, "json.loads"));
+        globals_["json"] = jsonObj;
     } else {
         std::string filename = name;
         if (filename.size() < 4 || (filename.substr(filename.size() - 4) != ".fsn" && filename.substr(filename.size() - 4) != ".eas")) {
@@ -267,6 +373,14 @@ Value VM::run(Chunk* chunk) {
                         runtimeError("ImportError", "Modul '" + name + "' belum dimuat.", curChunk, ip, frameCount, "", "Tambahkan 'use " + name + "' di baris awal berkas.");
                     } else if (name == "gui") {
                         runtimeError("ImportError", "Modul 'gui' belum dimuat.", curChunk, ip, frameCount, "", "Tambahkan 'use gui' di baris awal berkas.");
+                    } else if (name == "os") {
+                        runtimeError("ImportError", "Modul 'os' belum dimuat.", curChunk, ip, frameCount, "", "Tambahkan 'use os' atau 'import os' di baris awal berkas.");
+                    } else if (name == "sys") {
+                        runtimeError("ImportError", "Modul 'sys' belum dimuat.", curChunk, ip, frameCount, "", "Tambahkan 'use sys' atau 'import sys' di baris awal berkas.");
+                    } else if (name == "json") {
+                        runtimeError("ImportError", "Modul 'json' belum dimuat.", curChunk, ip, frameCount, "", "Tambahkan 'use json' atau 'import json' di baris awal berkas.");
+                    } else if (name == "path") {
+                        runtimeError("ImportError", "Modul 'path' belum dimuat.", curChunk, ip, frameCount, "", "Tambahkan 'use os' atau 'use path' di baris awal berkas.");
                     } else {
                         // Check if it's a keyword typo
                         std::string kwMatch = Diagnostic::suggestSimilar(name, Diagnostic::getKeywords());
@@ -791,13 +905,301 @@ Value VM::run(Chunk* chunk) {
                     requireModule("math", name);
                     double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
                     *top++ = StandardLibrary::mathTan(val);
+                } else if (name == "math.asin") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathAsin(val);
+                } else if (name == "math.acos") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathAcos(val);
+                } else if (name == "math.atan") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathAtan(val);
+                } else if (name == "math.atan2") {
+                    requireModule("math", name);
+                    double x = (*(--top)).asFloat();
+                    double y = (*(--top)).asFloat();
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::mathAtan2(y, x);
+                } else if (name == "math.sinh") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathSinh(val);
+                } else if (name == "math.cosh") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathCosh(val);
+                } else if (name == "math.tanh") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathTanh(val);
+                } else if (name == "math.exp") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathExp(val);
+                } else if (name == "math.log" || name == "math.ln") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathLog(val);
+                } else if (name == "math.log10") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathLog10(val);
+                } else if (name == "math.log2") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathLog2(val);
+                } else if (name == "math.degrees") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathDegrees(val);
+                } else if (name == "math.radians") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathRadians(val);
+                } else if (name == "math.hypot") {
+                    requireModule("math", name);
+                    double y = (*(--top)).asFloat();
+                    double x = (*(--top)).asFloat();
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::mathHypot(x, y);
+                } else if (name == "math.trunc") {
+                    requireModule("math", name);
+                    double val = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::mathTrunc(val);
+                } else if (name == "math.clamp") {
+                    requireModule("math", name);
+                    double maxV = (*(--top)).asFloat();
+                    double minV = (*(--top)).asFloat();
+                    double v = (*(--top)).asFloat();
+                    if (argCount > 3) top -= (argCount - 3);
+                    *top++ = StandardLibrary::mathClamp(v, minV, maxV);
                 } else if (name == "time.sleep") {
                     requireModule("time", name);
                     int64_t ms = argCount > 0 ? (*(--top)).asInt() : 0;
                     *top++ = StandardLibrary::timeSleep(ms);
+                } else if (name == "time.sleep_s") {
+                    requireModule("time", name);
+                    double s = argCount > 0 ? (*(--top)).asFloat() : 0.0;
+                    *top++ = StandardLibrary::timeSleepS(s);
                 } else if (name == "time.now") {
                     top -= argCount;
                     *top++ = StandardLibrary::timeNow();
+                } else if (name == "time.time") {
+                    top -= argCount;
+                    *top++ = StandardLibrary::timeTime();
+                } else if (name == "time.time_ns") {
+                    top -= argCount;
+                    *top++ = StandardLibrary::timeTimeNs();
+                } else if (name == "time.format") {
+                    std::string fmt = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::timeFormat(fmt);
+                } else if (name == "str.split") {
+                    std::string delim = argCount > 1 ? (*(--top)).toString() : " ";
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::strSplit(s, delim);
+                } else if (name == "str.join") {
+                    Value listV = argCount > 1 ? (*(--top)) : Value::makeList();
+                    std::string delim = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::strJoin(delim, listV);
+                } else if (name == "str.replace") {
+                    std::string newS = argCount > 2 ? (*(--top)).toString() : "";
+                    std::string oldS = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 3) top -= (argCount - 3);
+                    *top++ = StandardLibrary::strReplace(s, oldS, newS);
+                } else if (name == "str.trim") {
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::strTrim(s);
+                } else if (name == "str.startswith") {
+                    std::string prefix = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::strStartsWith(s, prefix);
+                } else if (name == "str.endswith") {
+                    std::string suffix = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::strEndsWith(s, suffix);
+                } else if (name == "str.contains") {
+                    std::string sub = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::strContains(s, sub);
+                } else if (name == "str.find") {
+                    std::string sub = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::strFind(s, sub);
+                } else if (name == "os.getcwd") {
+                    requireModule("os", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::osGetcwd();
+                } else if (name == "os.chdir") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osChdir(p);
+                } else if (name == "os.listdir") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : ".";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osListdir(p);
+                } else if (name == "os.mkdir") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osMkdir(p);
+                } else if (name == "os.makedirs") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osMakedirs(p);
+                } else if (name == "os.remove" || name == "os.unlink") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osRemove(p);
+                } else if (name == "os.rmdir") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osRmdir(p);
+                } else if (name == "os.removedirs" || name == "os.rmtree") {
+                    requireModule("os", name);
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osRemovedirs(p);
+                } else if (name == "os.rename") {
+                    requireModule("os", name);
+                    std::string dst = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string src = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::osRename(src, dst);
+                } else if (name == "os.system") {
+                    requireModule("os", name);
+                    std::string cmd = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osSystem(cmd);
+                } else if (name == "os.popen") {
+                    requireModule("os", name);
+                    std::string cmd = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPopen(cmd);
+                } else if (name == "os.getenv") {
+                    requireModule("os", name);
+                    std::string defV = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string k = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::osGetenv(k, defV);
+                } else if (name == "os.setenv" || name == "os.putenv") {
+                    requireModule("os", name);
+                    std::string v = argCount > 1 ? (*(--top)).toString() : "";
+                    std::string k = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 2) top -= (argCount - 2);
+                    *top++ = StandardLibrary::osSetenv(k, v);
+                } else if (name == "os.unsetenv") {
+                    requireModule("os", name);
+                    std::string k = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osUnsetenv(k);
+                } else if (name == "os.getpid") {
+                    requireModule("os", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::osGetpid();
+                } else if (name == "os.cpu_count") {
+                    requireModule("os", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::osCpuCount();
+                } else if (name == "os.exit") {
+                    int64_t codeVal = argCount > 0 ? (*(--top)).asInt() : 0;
+                    StandardLibrary::osExit(codeVal);
+                } else if (name == "os.path.exists" || name == "path.exists" || name == "os.exists") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathExists(p);
+                } else if (name == "os.path.isfile" || name == "path.isfile" || name == "os.isfile") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathIsFile(p);
+                } else if (name == "os.path.isdir" || name == "path.isdir" || name == "os.isdir") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathIsDir(p);
+                } else if (name == "os.path.getsize" || name == "path.getsize" || name == "os.getsize") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathGetSize(p);
+                } else if (name == "os.path.join" || name == "path.join") {
+                    std::vector<Value> jargs;
+                    for (size_t i = 0; i < argCount; ++i) {
+                        jargs.push_back(*(top - argCount + i));
+                    }
+                    top -= argCount;
+                    *top++ = StandardLibrary::osPathJoin(jargs);
+                } else if (name == "os.path.basename" || name == "path.basename") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathBasename(p);
+                } else if (name == "os.path.dirname" || name == "path.dirname") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathDirname(p);
+                } else if (name == "os.path.abspath" || name == "path.abspath") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathAbspath(p);
+                } else if (name == "os.path.splitext" || name == "path.splitext") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathSplitext(p);
+                } else if (name == "os.path.isabs" || name == "path.isabs") {
+                    std::string p = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::osPathIsabs(p);
+                } else if (name == "sys.platform") {
+                    requireModule("sys", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::sysPlatform();
+                } else if (name == "sys.version") {
+                    requireModule("sys", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::sysVersion();
+                } else if (name == "sys.argv") {
+                    requireModule("sys", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::sysArgv();
+                } else if (name == "sys.exit") {
+                    int64_t codeVal = argCount > 0 ? (*(--top)).asInt() : 0;
+                    StandardLibrary::sysExit(codeVal);
+                } else if (name == "sys.getpid") {
+                    requireModule("sys", name);
+                    top -= argCount;
+                    *top++ = StandardLibrary::osGetpid();
+                } else if (name == "sys.stdout_write") {
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::sysStdoutWrite(s);
+                } else if (name == "sys.stderr_write") {
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::sysStderrWrite(s);
+                } else if (name == "json.dumps" || name == "json.stringify") {
+                    requireModule("json", name);
+                    Value v = argCount > 0 ? (*(--top)) : Value();
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::jsonDumps(v);
+                } else if (name == "json.loads" || name == "json.parse") {
+                    requireModule("json", name);
+                    std::string s = argCount > 0 ? (*(--top)).toString() : "";
+                    if (argCount > 1) top -= (argCount - 1);
+                    *top++ = StandardLibrary::jsonLoads(s);
                 } else if (name == "get" || name == "net.get" || name == "http.get") {
                     if (argCount == 1) {
                         Value u = *(--top);

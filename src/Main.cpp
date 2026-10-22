@@ -150,21 +150,31 @@ int main(int argc, char* argv[]) {
 
     bool enableJit = true;
     std::string scriptPath;
+    std::vector<std::string> scriptArgs;
+    bool foundScript = false;
+
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
-        if (a == "--no-jit") {
-            enableJit = false;
-        } else if (a == "--jit") {
-            enableJit = true;
-        } else if (a == "--bench") {
-            VM::setBenchMode(true);
-        } else if (a == "run" || a == "--vm" || a == "-v") {
-            // verb or flag
-        } else if (scriptPath.empty() && !a.empty() && a[0] != '-') {
-            scriptPath = a;
+        if (foundScript) {
+            scriptArgs.push_back(a);
+        } else {
+            if (a == "--no-jit") {
+                enableJit = false;
+            } else if (a == "--jit") {
+                enableJit = true;
+            } else if (a == "--bench") {
+                VM::setBenchMode(true);
+            } else if (a == "run" || a == "--vm") {
+                // verb or flag
+            } else if (scriptPath.empty() && !a.empty() && a[0] != '-') {
+                scriptPath = a;
+                foundScript = true;
+                scriptArgs.push_back(scriptPath);
+            }
         }
     }
     JitEngine::instance().setEnabled(enableJit);
+    StandardLibrary::setArgs(scriptArgs);
 
     if (scriptPath.empty()) {
         std::cerr << "Usage: fasthonjit <script.fsn>\n";

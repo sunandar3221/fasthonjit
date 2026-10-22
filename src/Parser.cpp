@@ -82,6 +82,93 @@ Parser::Parser(std::vector<Token> tokens)
     functionArity_["str.upper"] = 1;
     functionArity_["str.case_sensitive"] = 2;
     functionArity_["str.incase_sensitive"] = 2;
+    functionArity_["str.split"] = 2;
+    functionArity_["str.join"] = 2;
+    functionArity_["str.replace"] = 3;
+    functionArity_["str.trim"] = 1;
+    functionArity_["str.startswith"] = 2;
+    functionArity_["str.endswith"] = 2;
+    functionArity_["str.contains"] = 2;
+    functionArity_["str.find"] = 2;
+
+    functionArity_["math.asin"] = 1;
+    functionArity_["math.acos"] = 1;
+    functionArity_["math.atan"] = 1;
+    functionArity_["math.atan2"] = 2;
+    functionArity_["math.sinh"] = 1;
+    functionArity_["math.cosh"] = 1;
+    functionArity_["math.tanh"] = 1;
+    functionArity_["math.exp"] = 1;
+    functionArity_["math.log"] = 1;
+    functionArity_["math.log10"] = 1;
+    functionArity_["math.log2"] = 1;
+    functionArity_["math.degrees"] = 1;
+    functionArity_["math.radians"] = 1;
+    functionArity_["math.hypot"] = 2;
+    functionArity_["math.trunc"] = 1;
+    functionArity_["math.clamp"] = 3;
+
+    functionArity_["time.time"] = 0;
+    functionArity_["time.time_ns"] = 0;
+    functionArity_["time.sleep_s"] = 1;
+    functionArity_["time.format"] = 1;
+
+    functionArity_["os.getcwd"] = 0;
+    functionArity_["os.chdir"] = 1;
+    functionArity_["os.listdir"] = 1;
+    functionArity_["os.mkdir"] = 1;
+    functionArity_["os.makedirs"] = 1;
+    functionArity_["os.remove"] = 1;
+    functionArity_["os.unlink"] = 1;
+    functionArity_["os.rmdir"] = 1;
+    functionArity_["os.removedirs"] = 1;
+    functionArity_["os.rmtree"] = 1;
+    functionArity_["os.rename"] = 2;
+    functionArity_["os.system"] = 1;
+    functionArity_["os.popen"] = 1;
+    functionArity_["os.getenv"] = 1;
+    functionArity_["os.setenv"] = 2;
+    functionArity_["os.putenv"] = 2;
+    functionArity_["os.unsetenv"] = 1;
+    functionArity_["os.getpid"] = 0;
+    functionArity_["os.cpu_count"] = 0;
+    functionArity_["os.exit"] = 1;
+    functionArity_["os.exists"] = 1;
+    functionArity_["os.isfile"] = 1;
+    functionArity_["os.isdir"] = 1;
+    functionArity_["os.getsize"] = 1;
+
+    functionArity_["os.path.exists"] = 1;
+    functionArity_["os.path.isfile"] = 1;
+    functionArity_["os.path.isdir"] = 1;
+    functionArity_["os.path.getsize"] = 1;
+    functionArity_["os.path.join"] = 2;
+    functionArity_["os.path.basename"] = 1;
+    functionArity_["os.path.dirname"] = 1;
+    functionArity_["os.path.abspath"] = 1;
+    functionArity_["os.path.splitext"] = 1;
+    functionArity_["os.path.isabs"] = 1;
+
+    functionArity_["path.exists"] = 1;
+    functionArity_["path.isfile"] = 1;
+    functionArity_["path.isdir"] = 1;
+    functionArity_["path.getsize"] = 1;
+    functionArity_["path.join"] = 2;
+    functionArity_["path.basename"] = 1;
+    functionArity_["path.dirname"] = 1;
+    functionArity_["path.abspath"] = 1;
+    functionArity_["path.splitext"] = 1;
+    functionArity_["path.isabs"] = 1;
+
+    functionArity_["sys.exit"] = 1;
+    functionArity_["sys.getpid"] = 0;
+    functionArity_["sys.stdout_write"] = 1;
+    functionArity_["sys.stderr_write"] = 1;
+
+    functionArity_["json.dumps"] = 1;
+    functionArity_["json.loads"] = 1;
+    functionArity_["json.stringify"] = 1;
+    functionArity_["json.parse"] = 1;
 }
 
 bool Parser::isAtEnd() const {
@@ -409,7 +496,7 @@ std::unique_ptr<Stmt> Parser::parseUse() {
         mod = advance().lexeme;
     }
     if (check(TokenType::NEWLINE)) advance();
-    if (!mod.empty() && mod != "io" && mod != "math" && mod != "time" && mod != "net" && mod != "http" && mod != "gui" && mod != "str" && mod != "string") {
+    if (!mod.empty() && mod != "io" && mod != "math" && mod != "time" && mod != "net" && mod != "http" && mod != "gui" && mod != "str" && mod != "string" && mod != "os" && mod != "sys" && mod != "json" && mod != "path") {
         std::string filename = mod;
         if (filename.size() < 4 || (filename.substr(filename.size() - 4) != ".fsn" && filename.substr(filename.size() - 4) != ".eas")) {
             std::ifstream testFsn(filename + ".fsn");
@@ -1120,6 +1207,16 @@ std::unique_ptr<Expr> Parser::parsePostfix(std::unique_ptr<Expr> expr) {
                 match(TokenType::RPAREN);
                 if (auto* var = dynamic_cast<VarExpr*>(expr.get())) {
                     expr = std::make_unique<CallExpr>(var->name + "." + prop, std::move(args));
+                } else if (auto* get = dynamic_cast<GetExpr*>(expr.get())) {
+                    if (auto* subVar = dynamic_cast<VarExpr*>(get->target.get())) {
+                        if (auto* lit = dynamic_cast<LiteralExpr*>(get->property.get())) {
+                            expr = std::make_unique<CallExpr>(subVar->name + "." + lit->value.toString() + "." + prop, std::move(args));
+                        } else {
+                            expr = std::make_unique<GetExpr>(std::move(expr), std::make_unique<LiteralExpr>(Value(prop)));
+                        }
+                    } else {
+                        expr = std::make_unique<GetExpr>(std::move(expr), std::make_unique<LiteralExpr>(Value(prop)));
+                    }
                 } else {
                     expr = std::make_unique<GetExpr>(std::move(expr), std::make_unique<LiteralExpr>(Value(prop)));
                 }
@@ -1197,6 +1294,13 @@ std::unique_ptr<Expr> Parser::parseCallOrPrimary() {
                 peek().type != TokenType::COMMA && peek().type != TokenType::RPAREN && peek().type != TokenType::RBRACKET) {
                 Token propTok = advance();
                 std::string fullName = id + "." + propTok.lexeme;
+                while (match(TokenType::DOT)) {
+                    if (!isAtEnd() && peek().type != TokenType::NEWLINE && peek().type != TokenType::DEDENT &&
+                        peek().type != TokenType::END && peek().type != TokenType::END_OF_FILE &&
+                        peek().type != TokenType::COMMA && peek().type != TokenType::RPAREN && peek().type != TokenType::RBRACKET) {
+                        fullName += "." + advance().lexeme;
+                    }
+                }
                 auto it = functionArity_.find(fullName);
                 int arity = (it != functionArity_.end()) ? it->second : -1;
 

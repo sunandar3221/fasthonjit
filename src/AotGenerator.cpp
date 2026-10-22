@@ -51,7 +51,8 @@ void AotGenerator::resolveImports(BlockStmt* program,
         if (auto* useStmt = dynamic_cast<UseStmt*>(s.get())) {
             const std::string& mod = useStmt->moduleName;
             if (mod.empty() || mod == "io" || mod == "math" || mod == "time" ||
-                mod == "net" || mod == "http" || mod == "gui" || mod == "str" || mod == "string") {
+                mod == "net" || mod == "http" || mod == "gui" || mod == "str" || mod == "string" ||
+                mod == "os" || mod == "sys" || mod == "json" || mod == "path") {
                 continue;
             }
             std::string filename = mod;
@@ -102,7 +103,7 @@ std::string AotGenerator::generateExpr(Expr* expr) {
 
     if (auto* lit = dynamic_cast<LiteralExpr*>(expr)) {
         if (lit->value.isInt()) {
-            return std::to_string(lit->value.intVal) + "LL";
+            return "int64_t(" + std::to_string(lit->value.intVal) + "LL)";
         }
         if (lit->value.isFloat()) {
             return std::to_string(lit->value.floatVal);
@@ -336,14 +337,276 @@ std::string AotGenerator::generateExpr(Expr* expr) {
             std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
             return "StandardLibrary::mathTan(" + arg + ")";
         }
+        if (callee == "math.asin" || callee == "asin") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathAsin(" + arg + ")";
+        }
+        if (callee == "math.acos" || callee == "acos") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathAcos(" + arg + ")";
+        }
+        if (callee == "math.atan" || callee == "atan") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathAtan(" + arg + ")";
+        }
+        if (callee == "math.atan2" || callee == "atan2") {
+            std::string y = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            std::string x = call->arguments.size() < 2 ? "0.0" : "Value(" + generateExpr(call->arguments[1].get()) + ").asFloat()";
+            return "StandardLibrary::mathAtan2(" + y + ", " + x + ")";
+        }
+        if (callee == "math.sinh" || callee == "sinh") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathSinh(" + arg + ")";
+        }
+        if (callee == "math.cosh" || callee == "cosh") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathCosh(" + arg + ")";
+        }
+        if (callee == "math.tanh" || callee == "tanh") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathTanh(" + arg + ")";
+        }
+        if (callee == "math.exp" || callee == "exp") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathExp(" + arg + ")";
+        }
+        if (callee == "math.log" || callee == "log" || callee == "math.ln" || callee == "ln") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathLog(" + arg + ")";
+        }
+        if (callee == "math.log10" || callee == "log10") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathLog10(" + arg + ")";
+        }
+        if (callee == "math.log2" || callee == "log2") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathLog2(" + arg + ")";
+        }
+        if (callee == "math.degrees" || callee == "degrees") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathDegrees(" + arg + ")";
+        }
+        if (callee == "math.radians" || callee == "radians") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathRadians(" + arg + ")";
+        }
+        if (callee == "math.hypot" || callee == "hypot") {
+            std::string a = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            std::string b = call->arguments.size() < 2 ? "0.0" : "Value(" + generateExpr(call->arguments[1].get()) + ").asFloat()";
+            return "StandardLibrary::mathHypot(" + a + ", " + b + ")";
+        }
+        if (callee == "math.trunc" || callee == "trunc") {
+            std::string arg = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::mathTrunc(" + arg + ")";
+        }
+        if (callee == "math.clamp" || callee == "clamp") {
+            std::string v = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            std::string mn = call->arguments.size() < 2 ? "0.0" : "Value(" + generateExpr(call->arguments[1].get()) + ").asFloat()";
+            std::string mx = call->arguments.size() < 3 ? "0.0" : "Value(" + generateExpr(call->arguments[2].get()) + ").asFloat()";
+            return "StandardLibrary::mathClamp(" + v + ", " + mn + ", " + mx + ")";
+        }
 
         // Time functions
         if (callee == "time.sleep" || callee == "sleep") {
             std::string ms = call->arguments.empty() ? "0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asInt()";
             return "StandardLibrary::timeSleep(" + ms + ")";
         }
+        if (callee == "time.sleep_s") {
+            std::string s = call->arguments.empty() ? "0.0" : "Value(" + generateExpr(call->arguments[0].get()) + ").asFloat()";
+            return "StandardLibrary::timeSleepS(" + s + ")";
+        }
         if (callee == "time.now" || callee == "now") {
             return "StandardLibrary::timeNow()";
+        }
+        if (callee == "time.time") {
+            return "StandardLibrary::timeTime()";
+        }
+        if (callee == "time.time_ns") {
+            return "StandardLibrary::timeTimeNs()";
+        }
+        if (callee == "time.format") {
+            std::string fmt = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::timeFormat(" + fmt + ")";
+        }
+
+        // String utilities
+        if (callee == "str.split") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string delim = call->arguments.size() < 2 ? "\" \"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::strSplit(" + s + ", " + delim + ")";
+        }
+        if (callee == "str.join") {
+            std::string delim = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string listV = call->arguments.size() < 2 ? "Value::makeList()" : "Value(" + generateExpr(call->arguments[1].get()) + ")";
+            return "StandardLibrary::strJoin(" + delim + ", " + listV + ")";
+        }
+        if (callee == "str.replace") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string oldS = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            std::string newS = call->arguments.size() < 3 ? "\"\"" : "(Value(" + generateExpr(call->arguments[2].get()) + ")).toString()";
+            return "StandardLibrary::strReplace(" + s + ", " + oldS + ", " + newS + ")";
+        }
+        if (callee == "str.trim") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::strTrim(" + s + ")";
+        }
+        if (callee == "str.startswith") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string p = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::strStartsWith(" + s + ", " + p + ")";
+        }
+        if (callee == "str.endswith") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string p = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::strEndsWith(" + s + ", " + p + ")";
+        }
+        if (callee == "str.contains") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string p = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::strContains(" + s + ", " + p + ")";
+        }
+        if (callee == "str.find") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string p = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::strFind(" + s + ", " + p + ")";
+        }
+
+        // OS & Path functions
+        if (callee == "os.getcwd") return "StandardLibrary::osGetcwd()";
+        if (callee == "os.chdir") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osChdir(" + p + ")";
+        }
+        if (callee == "os.listdir") {
+            std::string p = call->arguments.empty() ? "\".\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osListdir(" + p + ")";
+        }
+        if (callee == "os.mkdir") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osMkdir(" + p + ")";
+        }
+        if (callee == "os.makedirs") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osMakedirs(" + p + ")";
+        }
+        if (callee == "os.remove" || callee == "os.unlink") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osRemove(" + p + ")";
+        }
+        if (callee == "os.rmdir") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osRmdir(" + p + ")";
+        }
+        if (callee == "os.removedirs" || callee == "os.rmtree") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osRemovedirs(" + p + ")";
+        }
+        if (callee == "os.rename") {
+            std::string src = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string dst = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::osRename(" + src + ", " + dst + ")";
+        }
+        if (callee == "os.system") {
+            std::string cmd = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osSystem(" + cmd + ")";
+        }
+        if (callee == "os.popen") {
+            std::string cmd = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPopen(" + cmd + ")";
+        }
+        if (callee == "os.getenv") {
+            std::string k = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string defV = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::osGetenv(" + k + ", " + defV + ")";
+        }
+        if (callee == "os.setenv" || callee == "os.putenv") {
+            std::string k = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            std::string v = call->arguments.size() < 2 ? "\"\"" : "(Value(" + generateExpr(call->arguments[1].get()) + ")).toString()";
+            return "StandardLibrary::osSetenv(" + k + ", " + v + ")";
+        }
+        if (callee == "os.unsetenv") {
+            std::string k = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osUnsetenv(" + k + ")";
+        }
+        if (callee == "os.getpid") return "StandardLibrary::osGetpid()";
+        if (callee == "os.cpu_count") return "StandardLibrary::osCpuCount()";
+        if (callee == "os.exit") {
+            std::string c = call->arguments.empty() ? "0" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).asInt()";
+            return "StandardLibrary::osExit(" + c + ")";
+        }
+
+        if (callee == "os.path.exists" || callee == "path.exists" || callee == "os.exists") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathExists(" + p + ")";
+        }
+        if (callee == "os.path.isfile" || callee == "path.isfile" || callee == "os.isfile") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathIsFile(" + p + ")";
+        }
+        if (callee == "os.path.isdir" || callee == "path.isdir" || callee == "os.isdir") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathIsDir(" + p + ")";
+        }
+        if (callee == "os.path.getsize" || callee == "path.getsize" || callee == "os.getsize") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathGetSize(" + p + ")";
+        }
+        if (callee == "os.path.join" || callee == "path.join") {
+            std::string ja = "{";
+            for (size_t i = 0; i < call->arguments.size(); ++i) {
+                if (i > 0) ja += ", ";
+                ja += "Value(" + generateExpr(call->arguments[i].get()) + ")";
+            }
+            ja += "}";
+            return "StandardLibrary::osPathJoin(std::vector<Value>" + ja + ")";
+        }
+        if (callee == "os.path.basename" || callee == "path.basename") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathBasename(" + p + ")";
+        }
+        if (callee == "os.path.dirname" || callee == "path.dirname") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathDirname(" + p + ")";
+        }
+        if (callee == "os.path.abspath" || callee == "path.abspath") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathAbspath(" + p + ")";
+        }
+        if (callee == "os.path.splitext" || callee == "path.splitext") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathSplitext(" + p + ")";
+        }
+        if (callee == "os.path.isabs" || callee == "path.isabs") {
+            std::string p = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::osPathIsabs(" + p + ")";
+        }
+
+        // Sys functions
+        if (callee == "sys.platform") return "StandardLibrary::sysPlatform()";
+        if (callee == "sys.version") return "StandardLibrary::sysVersion()";
+        if (callee == "sys.argv") return "StandardLibrary::sysArgv()";
+        if (callee == "sys.exit") {
+            std::string c = call->arguments.empty() ? "0" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).asInt()";
+            return "StandardLibrary::sysExit(" + c + ")";
+        }
+        if (callee == "sys.getpid") return "StandardLibrary::osGetpid()";
+        if (callee == "sys.stdout_write") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::sysStdoutWrite(" + s + ")";
+        }
+        if (callee == "sys.stderr_write") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::sysStderrWrite(" + s + ")";
+        }
+
+        // JSON functions
+        if (callee == "json.dumps" || callee == "json.stringify") {
+            std::string v = call->arguments.empty() ? "Value()" : "Value(" + generateExpr(call->arguments[0].get()) + ")";
+            return "StandardLibrary::jsonDumps(" + v + ")";
+        }
+        if (callee == "json.loads" || callee == "json.parse") {
+            std::string s = call->arguments.empty() ? "\"\"" : "(Value(" + generateExpr(call->arguments[0].get()) + ")).toString()";
+            return "StandardLibrary::jsonLoads(" + s + ")";
         }
 
         if ((callee == "lower" || callee == "to_lower" || callee == "lowercase" || callee == "kecil" || callee == "str.lower") && !call->arguments.empty()) {
@@ -413,8 +676,27 @@ std::string AotGenerator::generateExpr(Expr* expr) {
                 if (targetVar->name == "math") {
                     if (auto* propLit = dynamic_cast<LiteralExpr*>(getExpr->property.get())) {
                         if (propLit->value.isString()) {
-                            if (propLit->value.strVal == "pi") return "Value(3.141592653589793)";
-                            if (propLit->value.strVal == "e") return "Value(2.718281828459045)";
+                            if (propLit->value.strVal == "pi") return "Value(3.14159265358979323846)";
+                            if (propLit->value.strVal == "e") return "Value(2.71828182845904523536)";
+                            if (propLit->value.strVal == "tau") return "Value(6.28318530717958647692)";
+                            if (propLit->value.strVal == "inf") return "Value(std::numeric_limits<double>::infinity())";
+                        }
+                    }
+                } else if (targetVar->name == "os") {
+                    if (auto* propLit = dynamic_cast<LiteralExpr*>(getExpr->property.get())) {
+                        if (propLit->value.isString()) {
+                            if (propLit->value.strVal == "name") return "StandardLibrary::osName()";
+                            if (propLit->value.strVal == "sep") return "StandardLibrary::osSep()";
+                            if (propLit->value.strVal == "linesep") return "StandardLibrary::osLinesep()";
+                            if (propLit->value.strVal == "devnull") return "StandardLibrary::osDevnull()";
+                        }
+                    }
+                } else if (targetVar->name == "sys") {
+                    if (auto* propLit = dynamic_cast<LiteralExpr*>(getExpr->property.get())) {
+                        if (propLit->value.isString()) {
+                            if (propLit->value.strVal == "platform") return "StandardLibrary::sysPlatform()";
+                            if (propLit->value.strVal == "version") return "StandardLibrary::sysVersion()";
+                            if (propLit->value.strVal == "argv") return "StandardLibrary::sysArgv()";
                         }
                     }
                 }
@@ -901,6 +1183,7 @@ std::string AotGenerator::getRuntimeSource() {
 #include <algorithm>
 #include <thread>
 #include <cctype>
+#include <filesystem>
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -937,6 +1220,8 @@ public:
     Value() : type(ValueType::NIL), boolVal(false), intVal(0), floatVal(0.0) {}
     Value(bool b) : type(ValueType::BOOL), boolVal(b), intVal(b ? 1 : 0), floatVal(b ? 1.0 : 0.0) {}
     Value(int64_t i) : type(ValueType::INT), boolVal(i != 0), intVal(i), floatVal(static_cast<double>(i)) {}
+    Value(long long i) : type(ValueType::INT), boolVal(i != 0), intVal(static_cast<int64_t>(i)), floatVal(static_cast<double>(i)) {}
+    Value(unsigned long long i) : type(ValueType::INT), boolVal(i != 0), intVal(static_cast<int64_t>(i)), floatVal(static_cast<double>(i)) {}
     Value(int i) : type(ValueType::INT), boolVal(i != 0), intVal(i), floatVal(static_cast<double>(i)) {}
     Value(double f) : type(ValueType::FLOAT), boolVal(f != 0.0), intVal(static_cast<int64_t>(f)), floatVal(f) {}
     Value(std::string s) : type(ValueType::STRING), boolVal(!s.empty()), intVal(0), floatVal(0.0), strVal(std::move(s)) {}
@@ -1051,9 +1336,26 @@ public:
             case ValueType::INT: return intVal == other.intVal;
             case ValueType::FLOAT: return floatVal == other.floatVal;
             case ValueType::STRING: return strVal == other.strVal;
-            case ValueType::LIST: return listVal == other.listVal;
-            case ValueType::OBJECT: return objVal == other.objVal;
             case ValueType::FUNCTION: return strVal == other.strVal;
+            case ValueType::LIST: {
+                if (listVal == other.listVal) return true;
+                if (!listVal || !other.listVal) return (!listVal && !other.listVal) || (listVal ? listVal->empty() : other.listVal->empty());
+                if (listVal->size() != other.listVal->size()) return false;
+                for (size_t i = 0; i < listVal->size(); ++i) {
+                    if ((*listVal)[i] != (*other.listVal)[i]) return false;
+                }
+                return true;
+            }
+            case ValueType::OBJECT: {
+                if (objVal == other.objVal) return true;
+                if (!objVal || !other.objVal) return (!objVal && !other.objVal) || (objVal ? objVal->empty() : other.objVal->empty());
+                if (objVal->size() != other.objVal->size()) return false;
+                for (const auto& kv : *objVal) {
+                    auto it = other.objVal->find(kv.first);
+                    if (it == other.objVal->end() || it->second != kv.second) return false;
+                }
+                return true;
+            }
         }
         return false;
     }
@@ -1097,10 +1399,38 @@ public:
     }
 
     Value operator*(const Value& other) const {
-        if (type == ValueType::FLOAT || other.type == ValueType::FLOAT) {
-            return Value(asFloat() * other.asFloat());
+        if (type == ValueType::INT && other.type == ValueType::INT) {
+            return Value(intVal * other.intVal);
         }
-        return Value(asInt() * other.asInt());
+        if (isString() && other.isInt()) {
+            if (other.intVal <= 0) return Value("");
+            std::string res;
+            res.reserve(strVal.size() * static_cast<size_t>(other.intVal));
+            for (int64_t i = 0; i < other.intVal; ++i) res += strVal;
+            return Value(res);
+        }
+        if (isInt() && other.isString()) {
+            if (intVal <= 0) return Value("");
+            std::string res;
+            res.reserve(other.strVal.size() * static_cast<size_t>(intVal));
+            for (int64_t i = 0; i < intVal; ++i) res += other.strVal;
+            return Value(res);
+        }
+        if (isList() && other.isInt()) {
+            if (other.intVal <= 0 || !listVal) return Value::makeList();
+            std::vector<Value> res;
+            res.reserve(listVal->size() * static_cast<size_t>(other.intVal));
+            for (int64_t i = 0; i < other.intVal; ++i) res.insert(res.end(), listVal->begin(), listVal->end());
+            return Value(res);
+        }
+        if (isInt() && other.isList()) {
+            if (intVal <= 0 || !other.listVal) return Value::makeList();
+            std::vector<Value> res;
+            res.reserve(other.listVal->size() * static_cast<size_t>(intVal));
+            for (int64_t i = 0; i < intVal; ++i) res.insert(res.end(), other.listVal->begin(), other.listVal->end());
+            return Value(res);
+        }
+        return Value(asFloat() * other.asFloat());
     }
 
     Value operator/(const Value& other) const {
@@ -1140,11 +1470,16 @@ public:
     Value getIndex(const Value& index) const {
         if (type == ValueType::LIST && listVal) {
             int64_t i = index.asInt();
+            if (i < 0) i += static_cast<int64_t>(listVal->size());
             if (i >= 0 && i < static_cast<int64_t>(listVal->size())) {
                 return (*listVal)[static_cast<size_t>(i)];
             }
+        } else if (type == ValueType::OBJECT && objVal) {
+            auto it = objVal->find(index.toString());
+            if (it != objVal->end()) return it->second;
         } else if (type == ValueType::STRING) {
             int64_t i = index.asInt();
+            if (i < 0) i += static_cast<int64_t>(strVal.size());
             if (i >= 0 && i < static_cast<int64_t>(strVal.size())) {
                 return Value(std::string(1, strVal[static_cast<size_t>(i)]));
             }
@@ -1153,11 +1488,19 @@ public:
     }
 
     void setIndex(const Value& index, const Value& val) {
-        if (type == ValueType::LIST && listVal) {
+        if (type == ValueType::LIST) {
+            if (!listVal) listVal = std::make_shared<std::vector<Value>>();
             int64_t i = index.asInt();
-            if (i >= 0 && i < static_cast<int64_t>(listVal->size())) {
+            if (i < 0) i += static_cast<int64_t>(listVal->size());
+            if (i >= 0) {
+                if (i >= static_cast<int64_t>(listVal->size())) {
+                    listVal->resize(static_cast<size_t>(i + 1));
+                }
                 (*listVal)[static_cast<size_t>(i)] = val;
             }
+        } else if (type == ValueType::OBJECT) {
+            if (!objVal) objVal = std::make_shared<std::unordered_map<std::string, Value>>();
+            (*objVal)[index.toString()] = val;
         }
     }
 
@@ -1535,6 +1878,25 @@ public:
     static Value mathSin(double val) { return Value(std::sin(val)); }
     static Value mathCos(double val) { return Value(std::cos(val)); }
     static Value mathTan(double val) { return Value(std::tan(val)); }
+    static Value mathAsin(double val) { return Value(std::asin(val)); }
+    static Value mathAcos(double val) { return Value(std::acos(val)); }
+    static Value mathAtan(double val) { return Value(std::atan(val)); }
+    static Value mathAtan2(double y, double x) { return Value(std::atan2(y, x)); }
+    static Value mathSinh(double val) { return Value(std::sinh(val)); }
+    static Value mathCosh(double val) { return Value(std::cosh(val)); }
+    static Value mathTanh(double val) { return Value(std::tanh(val)); }
+    static Value mathExp(double val) { return Value(std::exp(val)); }
+    static Value mathLog(double val) { return Value(std::log(val)); }
+    static Value mathLog10(double val) { return Value(std::log10(val)); }
+    static Value mathLog2(double val) { return Value(std::log2(val)); }
+    static Value mathDegrees(double rad) { return Value(rad * (180.0 / 3.14159265358979323846)); }
+    static Value mathRadians(double deg) { return Value(deg * (3.14159265358979323846 / 180.0)); }
+    static Value mathHypot(double x, double y) { return Value(std::hypot(x, y)); }
+    static Value mathTrunc(double val) { return Value(std::trunc(val)); }
+    static Value mathClamp(double val, double minVal, double maxVal) {
+        if (minVal > maxVal) std::swap(minVal, maxVal);
+        return Value(std::clamp(val, minVal, maxVal));
+    }
 
     static Value mathRandom() {
         std::uniform_real_distribution<double> dist(0.0, 1.0);
@@ -1572,9 +1934,36 @@ public:
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
         return Value(static_cast<int64_t>(ms));
     }
+    static Value timeTime() {
+        auto now = std::chrono::system_clock::now().time_since_epoch();
+        double sec = std::chrono::duration<double>(now).count();
+        return Value(sec);
+    }
+    static Value timeTimeNs() {
+        auto now = std::chrono::high_resolution_clock::now().time_since_epoch();
+        int64_t ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now).count();
+        return Value(ns);
+    }
     static Value timeSleep(int64_t ms) {
         if (ms > 0) std::this_thread::sleep_for(std::chrono::milliseconds(ms));
         return Value();
+    }
+    static Value timeSleepS(double s) {
+        if (s > 0.0) std::this_thread::sleep_for(std::chrono::duration<double>(s));
+        return Value();
+    }
+    static Value timeFormat(const std::string& fmt) {
+        std::string actualFmt = fmt.empty() ? "%Y-%m-%d %H:%M:%S" : fmt;
+        std::time_t t = std::time(nullptr);
+        std::tm tmVal{};
+#ifdef _WIN32
+        localtime_s(&tmVal, &t);
+#else
+        localtime_r(&t, &tmVal);
+#endif
+        char buf[256];
+        if (std::strftime(buf, sizeof(buf), actualFmt.c_str(), &tmVal)) return Value(std::string(buf));
+        return Value("");
     }
 
     static Value toLower(const std::string& str) {
@@ -1594,6 +1983,300 @@ public:
             if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i]))) return Value(false);
         }
         return Value(true);
+    }
+
+    static Value strSplit(const std::string& s, const std::string& delim) {
+        std::vector<Value> res;
+        if (delim.empty()) {
+            for (char c : s) res.push_back(Value(std::string(1, c)));
+            return Value(res);
+        }
+        size_t start = 0;
+        size_t pos = 0;
+        while ((pos = s.find(delim, start)) != std::string::npos) {
+            res.push_back(Value(s.substr(start, pos - start)));
+            start = pos + delim.size();
+        }
+        res.push_back(Value(s.substr(start)));
+        return Value(res);
+    }
+    static Value strJoin(const std::string& delim, const Value& listVal) {
+        if (!listVal.isList() || !listVal.listVal) return Value("");
+        std::string res;
+        bool first = true;
+        for (const auto& item : *listVal.listVal) {
+            if (!first) res += delim;
+            first = false;
+            res += item.toString();
+        }
+        return Value(res);
+    }
+    static Value strReplace(const std::string& s, const std::string& oldStr, const std::string& newStr) {
+        if (oldStr.empty()) return Value(s);
+        std::string res;
+        size_t start = 0;
+        size_t pos = 0;
+        while ((pos = s.find(oldStr, start)) != std::string::npos) {
+            res.append(s, start, pos - start);
+            res.append(newStr);
+            start = pos + oldStr.size();
+        }
+        res.append(s, start, s.size() - start);
+        return Value(res);
+    }
+    static Value strTrim(const std::string& s) {
+        size_t start = 0;
+        while (start < s.size() && std::isspace(static_cast<unsigned char>(s[start]))) start++;
+        size_t end = s.size();
+        while (end > start && std::isspace(static_cast<unsigned char>(s[end - 1]))) end--;
+        return Value(s.substr(start, end - start));
+    }
+    static Value strStartsWith(const std::string& s, const std::string& prefix) {
+        return Value(s.rfind(prefix, 0) == 0);
+    }
+    static Value strEndsWith(const std::string& s, const std::string& suffix) {
+        if (suffix.size() > s.size()) return Value(false);
+        return Value(s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0);
+    }
+    static Value strContains(const std::string& s, const std::string& sub) {
+        return Value(s.find(sub) != std::string::npos);
+    }
+    static Value strFind(const std::string& s, const std::string& sub) {
+        size_t pos = s.find(sub);
+        if (pos == std::string::npos) return Value(static_cast<int64_t>(-1));
+        return Value(static_cast<int64_t>(pos));
+    }
+
+    static Value osName() {
+#ifdef _WIN32
+        return Value("nt");
+#else
+        return Value("posix");
+#endif
+    }
+    static Value osSep() {
+#ifdef _WIN32
+        return Value("\\");
+#else
+        return Value("/");
+#endif
+    }
+    static Value osLinesep() {
+#ifdef _WIN32
+        return Value("\r\n");
+#else
+        return Value("\n");
+#endif
+    }
+    static Value osDevnull() {
+#ifdef _WIN32
+        return Value("NUL");
+#else
+        return Value("/dev/null");
+#endif
+    }
+    static Value osGetcwd() {
+        try { return Value(std::filesystem::current_path().string()); } catch (...) { return Value(""); }
+    }
+    static Value osChdir(const std::string& path) {
+        try { std::filesystem::current_path(path); return Value(true); } catch (...) { return Value(false); }
+    }
+    static Value osListdir(const std::string& path) {
+        std::string target = path.empty() ? "." : path;
+        std::vector<Value> entries;
+        try { for (const auto& entry : std::filesystem::directory_iterator(target)) entries.push_back(Value(entry.path().filename().string())); } catch (...) {}
+        return Value(entries);
+    }
+    static Value osMkdir(const std::string& path) {
+        try { return Value(std::filesystem::create_directory(path)); } catch (...) { return Value(false); }
+    }
+    static Value osMakedirs(const std::string& path) {
+        try { return Value(std::filesystem::create_directories(path)); } catch (...) { return Value(false); }
+    }
+    static Value osRemove(const std::string& path) {
+        try { return Value(std::filesystem::remove(path)); } catch (...) { return Value(false); }
+    }
+    static Value osRmdir(const std::string& path) {
+        try { return Value(std::filesystem::remove(path)); } catch (...) { return Value(false); }
+    }
+    static Value osRemovedirs(const std::string& path) {
+        try { return Value(static_cast<int64_t>(std::filesystem::remove_all(path))); } catch (...) { return Value(static_cast<int64_t>(0)); }
+    }
+    static Value osRename(const std::string& src, const std::string& dst) {
+        try { std::filesystem::rename(src, dst); return Value(true); } catch (...) { return Value(false); }
+    }
+    static Value osSystem(const std::string& cmd) {
+        return Value(static_cast<int64_t>(std::system(cmd.c_str())));
+    }
+    static Value osPopen(const std::string& cmd) {
+#ifdef _WIN32
+        FILE* pipe = _popen(cmd.c_str(), "r");
+#else
+        FILE* pipe = popen(cmd.c_str(), "r");
+#endif
+        if (!pipe) return Value("");
+        std::string out;
+        char buffer[4096];
+        while (fgets(buffer, sizeof(buffer), pipe)) out.append(buffer);
+#ifdef _WIN32
+        _pclose(pipe);
+#else
+        pclose(pipe);
+#endif
+        return Value(out);
+    }
+    static Value osGetenv(const std::string& key, const std::string& defVal) {
+        const char* val = std::getenv(key.c_str());
+        return val ? Value(std::string(val)) : Value(defVal);
+    }
+    static Value osSetenv(const std::string& key, const std::string& val) {
+#ifdef _WIN32
+        return Value(SetEnvironmentVariableA(key.c_str(), val.c_str()) != 0);
+#else
+        return Value(setenv(key.c_str(), val.c_str(), 1) == 0);
+#endif
+    }
+    static Value osUnsetenv(const std::string& key) {
+#ifdef _WIN32
+        return Value(SetEnvironmentVariableA(key.c_str(), NULL) != 0);
+#else
+        return Value(unsetenv(key.c_str()) == 0);
+#endif
+    }
+    static Value osGetpid() {
+#ifdef _WIN32
+        return Value(static_cast<int64_t>(GetCurrentProcessId()));
+#else
+        return Value(static_cast<int64_t>(getpid()));
+#endif
+    }
+    static Value osCpuCount() {
+        unsigned int c = std::thread::hardware_concurrency();
+        return Value(static_cast<int64_t>(c > 0 ? c : 1));
+    }
+    static Value osExit(int64_t code) {
+        std::exit(static_cast<int>(code));
+        return Value();
+    }
+    static Value osPathExists(const std::string& path) {
+        try { return Value(std::filesystem::exists(path)); } catch (...) { return Value(false); }
+    }
+    static Value osPathIsFile(const std::string& path) {
+        try { return Value(std::filesystem::is_regular_file(path)); } catch (...) { return Value(false); }
+    }
+    static Value osPathIsDir(const std::string& path) {
+        try { return Value(std::filesystem::is_directory(path)); } catch (...) { return Value(false); }
+    }
+    static Value osPathGetSize(const std::string& path) {
+        try { return Value(static_cast<int64_t>(std::filesystem::file_size(path))); } catch (...) { return Value(static_cast<int64_t>(0)); }
+    }
+    static Value osPathJoin(const std::vector<Value>& args) {
+        std::filesystem::path p;
+        for (const auto& a : args) { if (p.empty()) p = a.toString(); else p /= a.toString(); }
+        return Value(p.string());
+    }
+    static Value osPathBasename(const std::string& path) {
+        try { return Value(std::filesystem::path(path).filename().string()); } catch (...) { return Value(""); }
+    }
+    static Value osPathDirname(const std::string& path) {
+        try { return Value(std::filesystem::path(path).parent_path().string()); } catch (...) { return Value(""); }
+    }
+    static Value osPathAbspath(const std::string& path) {
+        try { return Value(std::filesystem::absolute(path).lexically_normal().string()); } catch (...) { return Value(path); }
+    }
+    static Value osPathSplitext(const std::string& path) {
+        try {
+            std::filesystem::path p(path);
+            std::string ext = p.extension().string();
+            std::string stem = p.parent_path().empty() ? p.stem().string() : (p.parent_path() / p.stem()).string();
+            std::vector<Value> res = { Value(stem), Value(ext) };
+            return Value(res);
+        } catch (...) {
+            std::vector<Value> res = { Value(path), Value("") };
+            return Value(res);
+        }
+    }
+    static Value osPathIsabs(const std::string& path) {
+        try { return Value(std::filesystem::path(path).is_absolute()); } catch (...) { return Value(false); }
+    }
+
+    static Value sysPlatform() {
+#ifdef _WIN32
+        return Value("win32");
+#elif defined(__APPLE__)
+        return Value("darwin");
+#elif defined(__ANDROID__)
+        return Value("android");
+#else
+        return Value("linux");
+#endif
+    }
+    static Value sysVersion() { return Value("2.0.0"); }
+    static Value sysArgv() { return Value::makeList(); }
+    static Value sysExit(int64_t code) { std::exit(static_cast<int>(code)); return Value(); }
+    static Value sysStdoutWrite(const std::string& s) { std::cout << s; std::cout.flush(); return Value(static_cast<int64_t>(s.size())); }
+    static Value sysStderrWrite(const std::string& s) { std::cerr << s; std::cerr.flush(); return Value(static_cast<int64_t>(s.size())); }
+
+    static Value jsonDumps(const Value& val) {
+        auto dump = [](auto& self, const Value& v) -> std::string {
+            if (v.isNil()) return "null";
+            if (v.isBool()) return v.boolVal ? "true" : "false";
+            if (v.isInt()) return std::to_string(v.intVal);
+            if (v.isFloat()) { std::ostringstream ss; ss << v.floatVal; return ss.str(); }
+            if (v.isString()) {
+                std::string res = "\"";
+                for (char c : v.strVal) {
+                    if (c == '"') res += "\\\"";
+                    else if (c == '\\') res += "\\\\";
+                    else if (c == '\n') res += "\\n";
+                    else if (c == '\r') res += "\\r";
+                    else if (c == '\t') res += "\\t";
+                    else res += c;
+                }
+                res += "\"";
+                return res;
+            }
+            if (v.isList()) {
+                std::string res = "[";
+                if (v.listVal) {
+                    for (size_t i = 0; i < v.listVal->size(); ++i) {
+                        if (i > 0) res += ", ";
+                        res += self(self, (*v.listVal)[i]);
+                    }
+                }
+                res += "]";
+                return res;
+            }
+            if (v.isObject()) {
+                std::string res = "{";
+                if (v.objVal) {
+                    bool first = true;
+                    for (const auto& kv : *v.objVal) {
+                        if (!first) res += ", ";
+                        first = false;
+                        res += "\"" + kv.first + "\": " + self(self, kv.second);
+                    }
+                }
+                res += "}";
+                return res;
+            }
+            return "null";
+        };
+        return Value(dump(dump, val));
+    }
+    static Value jsonLoads(const std::string& s) {
+        // Simple AOT fallback json parse
+        std::string trimmed = s;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front()))) trimmed.erase(trimmed.begin());
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back()))) trimmed.pop_back();
+        if (trimmed == "null") return Value();
+        if (trimmed == "true") return Value(true);
+        if (trimmed == "false") return Value(false);
+        if (!trimmed.empty() && trimmed.front() == '"' && trimmed.back() == '"') return Value(trimmed.substr(1, trimmed.size() - 2));
+        try {
+            if (trimmed.find('.') != std::string::npos) return Value(std::stod(trimmed));
+            return Value(static_cast<int64_t>(std::stoll(trimmed)));
+        } catch (...) { return Value(trimmed); }
     }
 
     static Value httpGet(const std::string& url) {
@@ -1669,6 +2352,7 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
     bool isWindows = (normTarget == "windows" || normTarget == "win" || normTarget == "win64" || normTarget == "windows-x64");
     bool isAndroid = (normTarget == "android" || normTarget == "android-arm64" || normTarget == "termux" || normTarget == "arm64" || normTarget == "aarch64");
     bool isLinux = (!isWindows && !isAndroid);
+    (void)isLinux;
 
     auto hasCommand = [](const std::string& cmd) -> bool {
 #ifdef _WIN32

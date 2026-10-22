@@ -35,9 +35,15 @@ Proyek ini dilisensikan di bawah **Mozilla Public License 2.0 (MPL-2.0)**.
 - **Manajemen Memori Deterministik (Zero GC Overhead)**:
   - Menggunakan model Zero-Cost RAII sehingga alokasi dan dealokasi memori terjadi seketika tanpa jeda *stop-the-world garbage collection*.
 - **Batteries-Included Standard Library**:
-  - File I/O bawaan (`read`, `write`)
-  - Jaringan dan HTTP Client (`get`, `send`)
-  - Objek, map, dan list dinamis
+  - File I/O bawaan berkecepatan tinggi (`read`, `write`, stream `io.open`)
+  - Sistem Operasi & Manajemen Filesystem (`os`, `os.path` / `path`)
+  - Akses Informasi Sistem & Argumen CLI (`sys`, `sys.argv`, `sys.platform`)
+  - Serialisasi & Parsing Format Modern (`json.dumps`, `json.loads`)
+  - Matematika Lengkap, Trigonometri & PRNG Hardware (`math`)
+  - Waktu Presisi Tinggi, Stopwatch & Formatting (`time`)
+  - Manipulasi String Tingkat Lanjut (`str.split`, `str.join`, `str.replace`, `str.trim`)
+  - Jaringan dan HTTP Client (`get`, `send`, `net`)
+  - Objek, map, dan list dinamis dengan perbandingan *deep-equality*
   - Scaffolding aplikasi desktop native Win32 (`app`, `window`, `run`)
 
 ---
@@ -702,8 +708,24 @@ Modul `math` menyediakan fungsi-fungsi perhitungan matematika berkecepatan tingg
 | `math.sin(rad)` | Menghitung nilai sinus (sudut dalam radian). | `math.sin(0)` $\rightarrow$ `0.0` |
 | `math.cos(rad)` | Menghitung nilai kosinus (sudut dalam radian). | `math.cos(0)` $\rightarrow$ `1.0` |
 | `math.tan(rad)` | Menghitung nilai tangen (sudut dalam radian). | `math.tan(0)` $\rightarrow$ `0.0` |
+| `math.asin(x)` | Menghitung arc sinus dalam radian. | `math.asin(1.0)` |
+| `math.acos(x)` | Menghitung arc kosinus dalam radian. | `math.acos(1.0)` |
+| `math.atan(x)` | Menghitung arc tangen dalam radian. | `math.atan(1.0)` |
+| `math.atan2(y, x)` | Menghitung arc tangen dari kuadran $y / x$. | `math.atan2(1.0, 1.0)` |
+| `math.sinh(x)` / `cosh` / `tanh` | Menghitung fungsi hiperbolik sinus, kosinus, tangen. | `math.sinh(1.0)` |
+| `math.exp(x)` | Menghitung nilai eksponensial $e^x$. | `math.exp(1)` |
+| `math.log(x)` | Menghitung logaritma natural basis $e$. | `math.log(math.e)` $\rightarrow$ `1.0` |
+| `math.log10(x)` | Menghitung logaritma basis 10. | `math.log10(100)` $\rightarrow$ `2.0` |
+| `math.log2(x)` | Menghitung logaritma basis 2. | `math.log2(8)` $\rightarrow$ `3.0` |
+| `math.degrees(rad)` | Mengonversi radian ke derajat sudut. | `math.degrees(math.pi)` $\rightarrow$ `180.0` |
+| `math.radians(deg)` | Mengonversi derajat sudut ke radian. | `math.radians(180)` $\rightarrow$ `3.14159...` |
+| `math.hypot(x, y)` | Menghitung panjang hipotenusa $\sqrt{x^2 + y^2}$. | `math.hypot(3, 4)` $\rightarrow$ `5.0` |
+| `math.trunc(x)` | Memotong bagian pecahan dari angka desimal. | `math.trunc(3.7)` $\rightarrow$ `3` |
+| `math.clamp(x, min, max)` | Membatasi nilai $x$ dalam rentang $[min, max]$. | `math.clamp(15, 0, 10)` $\rightarrow$ `10` |
 | `math.pi` | Konstanta $\pi$ bernilai $3.141592653589793...$ | `keliling = 2 * math.pi * r` |
+| `math.tau` | Konstanta $\tau = 2\pi$ bernilai $6.283185307179...$ | `math.tau` |
 | `math.e` | Konstanta bilangan Euler $e$ bernilai $2.718281828459...$ | `math.e` |
+| `math.inf` | Nilai floating-point tak hingga (*infinity*). | `math.inf` |
 
 ##### B. Contoh Praktis: Mengontrol Random Seed & Game Tebak Angka
 Secara default, saat Anda menjalankan Fasthon, generator angka acak **otomatis menggunakan entropi perangkat keras** sehingga setiap kali program dijalankan, angka tebakan akan selalu berbeda dan tidak bisa diprediksi. Namun jika Anda membutuhkan hasil yang konsisten (misalnya saat testing), Anda dapat menetapkan seed secara manual:
@@ -797,7 +819,11 @@ Modul `time` berguna untuk mengukur performa baris kode (profiling / stopwatch),
 | Fungsi | Penjelasan | Contoh Penggunaan |
 | :--- | :--- | :--- |
 | `time.now()` | Mengembalikan waktu epoch saat ini dalam satuan **milidetik** (integer 64-bit) | `mulai = time.now()` |
+| `time.time()` | Mengembalikan epoch saat ini dalam satuan **detik** desimal (floating-point) | `t = time.time()` |
+| `time.time_ns()` | Mengembalikan epoch saat ini dalam satuan **nanodetik** (integer 64-bit) | `ns = time.time_ns()` |
 | `time.sleep(ms)` | Menghentikan sementara (*pause*) eksekusi program selama $ms$ milidetik | `time.sleep 1000` *(jeda 1 detik)* |
+| `time.sleep_s(sec)` | Menghentikan sementara program selama $sec$ detik | `time.sleep_s(1.5)` |
+| `time.format(fmt)` | Memformat waktu sistem lokal dengan format `strftime` (default: `"%Y-%m-%d %H:%M:%S"`) | `waktu = time.format()` |
 
 ##### B. Contoh Praktis: Pengukur Durasi Eksekusi & Hitung Mundur
 ```fasthon
@@ -883,6 +909,14 @@ Meskipun fungsi manipulasi teks umum tersedia secara global, modul `str` menyedi
 | :--- | :--- | :--- |
 | `str.lower(teks)` | Mengubah seluruh abjad dalam teks menjadi huruf kecil | `str.lower("Fasthon")` $\rightarrow$ `"fasthon"` |
 | `str.upper(teks)` | Mengubah seluruh abjad dalam teks menjadi huruf kapital | `str.upper("Fasthon")` $\rightarrow$ `"FASTHON"` |
+| `str.split(teks, pemisah)` | Memotong teks menjadi list string berdasarkan delimiter | `str.split("a,b,c", ",")` $\rightarrow$ `["a", "b", "c"]` |
+| `str.join(pemisah, list)` | Menggabungkan list string menjadi satu string dengan pemisah | `str.join("-", ["x", "y"])` $\rightarrow$ `"x-y"` |
+| `str.replace(teks, lama, baru)` | Mengganti kemunculan substring lama dengan substring baru | `str.replace("halo dunia", "dunia", "fasthon")` |
+| `str.trim(teks)` | Menghapus whitespace (spasi, newline, tab) di awal dan akhir teks | `str.trim("  halo  ")` $\rightarrow$ `"halo"` |
+| `str.startswith(teks, awalan)` | Memeriksa apakah teks diawali dengan prefix tertentu | `str.startswith("fasthon.fsn", "fasthon")` |
+| `str.endswith(teks, akhiran)` | Memeriksa apakah teks diakhiri dengan suffix tertentu | `str.endswith("skrip.fsn", ".fsn")` |
+| `str.contains(teks, sub)` | Memeriksa apakah teks mengandung substring | `str.contains("abcde", "bcd")` |
+| `str.find(teks, sub)` | Mencari indeks pertama kemunculan substring (-1 jika tidak ada) | `str.find("halo", "lo")` $\rightarrow$ `2` |
 | `str.case_sensitive(a, b)` | Membandingkan kecocokan dua teks secara ketat dengan membedakan huruf besar/kecil | `str.case_sensitive("A", "a")` $\rightarrow$ `false` |
 | `str.incase_sensitive(a, b)` | Membandingkan kecocokan dua teks tanpa mempedulikan huruf besar/kecil (*case-insensitive*) | `str.incase_sensitive("Admin", "admin")` $\rightarrow$ `true` |
 
@@ -909,6 +943,123 @@ elseif userCocok and not passCocok
     print "❌ Akses DITOLAK: Password salah (perhatikan huruf besar/kecil)!"
 else
     print "❌ Akses DITOLAK: Akun pengguna tidak ditemukan!"
+```
+
+---
+
+#### 7. Modul `os` & `path` (Sistem Operasi, Filesystem, Environment & Subproses)
+Modul `os` dan submodul `path` (atau `os.path`) menyediakan antarmuka lengkap ke sistem operasi host: manajemen direktori dan file, manipulasi path lintas-platform, pembacaan environment variable, serta eksekusi proses shell/terminal.
+
+##### A. Kamus Fungsi Modul `os` & `path`
+| Fungsi / Properti | Penjelasan | Contoh Penggunaan |
+| :--- | :--- | :--- |
+| `os.name` | Nama sistem operasi saat ini (`"posix"` atau `"nt"`) | `if os.name == "posix"` |
+| `os.sep` | Karakter pemisah path (`"/"` di Linux/Unix, `"\\"` di Windows) | `path = dir + os.sep + file` |
+| `os.linesep` | Karakter pemisah baris baru (`"\n"` atau `"\r\n"`) | `os.linesep` |
+| `os.devnull` | Path perangkat null (`"/dev/null"` atau `"NUL"`) | `os.devnull` |
+| `os.getcwd()` | Mengembalikan direktori kerja saat ini (*current working directory*) | `cwd = os.getcwd()` |
+| `os.chdir(path)` | Berpindah direktori kerja aktif | `os.chdir("../projek")` |
+| `os.listdir(path)` | Mengembalikan list nama berkas/folder di direktori target | `berkas = os.listdir(".")` |
+| `os.mkdir(path)` | Membuat direktori baru | `os.mkdir("folder_baru")` |
+| `os.makedirs(path)` | Membuat direktori beserta seluruh sub-direktori induknya secara rekursif | `os.makedirs("a/b/c")` |
+| `os.remove(path)` / `unlink` | Menghapus sebuah berkas | `os.remove("temp.txt")` |
+| `os.rmdir(path)` | Menghapus direktori kosong | `os.rmdir("folder_lama")` |
+| `os.rmtree(path)` | Menghapus direktori beserta seluruh isinya secara rekursif | `os.rmtree("cache_folder")` |
+| `os.rename(src, dst)` | Mengubah nama atau memindahkan berkas / direktori | `os.rename("old.txt", "new.txt")` |
+| `os.system(cmd)` | Menjalankan perintah shell dan mengembalikan exit code status integer | `code = os.system("ls -la")` |
+| `os.popen(cmd)` | Menjalankan perintah shell dan menangkap seluruh teks output stdout | `output = os.popen("uname -a")` |
+| `os.getenv(key, default)` | Membaca nilai *environment variable* host | `port = os.getenv("PORT", "8080")` |
+| `os.setenv(key, val)` | Menetapkan nilai *environment variable* untuk sesi saat ini | `os.setenv("ENV", "production")` |
+| `os.unsetenv(key)` | Menghapus variabel environment | `os.unsetenv("TOKEN")` |
+| `os.getpid()` | Mendapatkan Process ID (PID) program Fasthon saat ini | `pid = os.getpid()` |
+| `os.cpu_count()` | Mendapatkan jumlah core prosesor logis yang tersedia | `cores = os.cpu_count()` |
+| `os.exit(code)` | Keluar dari program seketika dengan status kode tertentu | `os.exit(0)` |
+| `path.exists(path)` *(atau `os.path.exists`)* | Memeriksa apakah berkas atau folder target ada | `if path.exists("config.json")` |
+| `path.isfile(path)` | Memeriksa apakah path merupakan berkas reguler | `path.isfile("data.txt")` |
+| `path.isdir(path)` | Memeriksa apakah path merupakan sebuah direktori | `path.isdir("src")` |
+| `path.getsize(path)` | Mengembalikan ukuran berkas dalam satuan byte | `size = path.getsize("foto.jpg")` |
+| `path.join(...)` | Menggabungkan fragmen path dengan separator platform otomatis | `p = path.join("dir", "sub", "file.txt")` |
+| `path.basename(path)` | Mengambil nama file terakhir dari path | `path.basename("/home/user/a.txt")` $\rightarrow$ `"a.txt"` |
+| `path.dirname(path)` | Mengambil direktori induk dari path | `path.dirname("/home/user/a.txt")` $\rightarrow$ `"/home/user"` |
+| `path.abspath(path)` | Mengonversi path relatif menjadi path absolut sistem | `abs = path.abspath(".")` |
+| `path.isabs(path)` | Memeriksa apakah path berupa path absolut | `path.isabs("/etc")` $\rightarrow$ `true` |
+
+##### B. Contoh Praktis: Otomasi File & Direktori
+```fasthon
+use os
+
+print "Direktori saat ini: ${os.getcwd()}"
+print "Jumlah Core CPU: ${os.cpu_count()}"
+
+if not os.path.exists("backup")
+    os.makedirs("backup/data")
+    print "Direktori backup berhasil dibuat!"
+
+# Menjalankan perintah terminal dan menangkap output
+output = os.popen("echo Fasthon Berjalan!")
+print "Output shell: ${output}"
+```
+
+---
+
+#### 8. Modul `sys` (Informasi Sistem, CLI Arguments, & Stream I/O)
+Modul `sys` menyediakan akses ke argumen baris perintah (`sys.argv`), platform runtime, identifikasi PID, dan stream output standar berkecepatan tinggi.
+
+##### A. Kamus Fungsi Modul `sys`
+| Fungsi / Properti | Penjelasan | Contoh Penggunaan |
+| :--- | :--- | :--- |
+| `sys.argv` | List berisi seluruh argumen command line yang diteruskan ke program | `args = sys.argv` |
+| `sys.platform` | Nama platform (`"linux"`, `"win32"`, `"darwin"`, dll.) | `print sys.platform` |
+| `sys.version` | Versi FasthonJIT saat ini | `print sys.version` |
+| `sys.stdout_write(teks)` | Menulis teks ke stdout murni tanpa newline otomatis | `sys.stdout_write("Loading...")` |
+| `sys.stderr_write(teks)` | Menulis teks pesan kesalahan ke stderr | `sys.stderr_write("Error!\n")` |
+| `sys.getpid()` | Mendapatkan Process ID program | `pid = sys.getpid()` |
+| `sys.exit(code)` | Menghentikan program dengan status code | `sys.exit(1)` |
+
+##### B. Contoh Praktis: Mengolah Argumen Command Line
+```fasthon
+use sys
+
+if len(sys.argv) < 2
+    sys.stderr_write("Penggunaan: fasthon program.fsn <nama>\n")
+    sys.exit(1)
+
+nama = sys.argv[1]
+print "Halo, ${nama}! Anda berjalan di ${sys.platform}."
+```
+
+---
+
+#### 9. Modul `json` (Serialisasi & Deserialisasi Objek/List)
+Modul `json` mempermudah pertukaran data modern (REST API, konfigurasi berkas, serialisasi struktur data) dengan konversi dua arah antara teks JSON dan tipe data bawaan Fasthon (list, object, string, number, boolean, null).
+
+##### A. Kamus Fungsi Modul `json`
+| Fungsi | Penjelasan | Contoh Penggunaan |
+| :--- | :--- | :--- |
+| `json.dumps(val)` *(atau `json.stringify`)* | Mengonversi nilai Fasthon (string, number, boolean, list, object) menjadi string berformat JSON | `jsonStr = json.dumps(data)` |
+| `json.loads(str)` *(atau `json.parse`)* | Mem-parsing string JSON menjadi tipe data asli Fasthon (list / object / number / string) | `data = json.loads(jsonStr)` |
+
+##### B. Contoh Praktis: Serialisasi & Parsing Konfigurasi JSON
+```fasthon
+use json
+
+# Membuat konfigurasi menggunakan objek Fasthon
+config = new
+config["server"] = "localhost"
+config["port"] = 8080
+config["debug"] = true
+config["endpoints"] = ["/api/v1", "/api/v2"]
+
+# Serialisasi ke format JSON
+teksJson = json.dumps(config)
+print "Hasil JSON:"
+print teksJson
+
+# Membaca kembali (parsing) dari teks JSON
+parsed = json.loads(teksJson)
+print "Server: ${parsed[\"server\"]}"
+print "Port: ${parsed[\"port\"]}"
+print "Endpoint pertama: ${parsed[\"endpoints\"][0]}"
 ```
 
 ---

@@ -1,6 +1,10 @@
 *.exe
 *.o
 *.obj
+fasthonjit
+fasthon
+eas
 _eas_aot_temp.cpp
 output_test.txt
 .eas_cache/
+

@@ -1,5 +1,8 @@
 import subprocess
 import os
+import sys
+
+exe = ".\\fasthonjit.exe" if sys.platform == "win32" else "./fasthonjit"
 
 tests = [
     ('multi-line fn without end', """kali = fn(x, y)
@@ -20,7 +23,7 @@ for name, code in tests:
     filename = "temp_fail_test.fsn"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(code)
-    p = subprocess.run([".\\fasthonjit.exe", filename], capture_output=True, text=True)
+    p = subprocess.run([exe, filename], capture_output=True, text=True)
     err = p.stderr or p.stdout
     print(f"=== Test: {name} ===")
     print(f"ReturnCode: {p.returncode}")

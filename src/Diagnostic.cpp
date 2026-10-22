@@ -248,7 +248,7 @@ const std::vector<std::string>& Diagnostic::getBuiltinFunctions() {
 
 const std::vector<std::string>& Diagnostic::getStandardLibraries() {
     static const std::vector<std::string> libs = {
-        "io", "math", "time", "net", "http", "gui", "str"
+        "io", "math", "time", "net", "http", "gui", "str", "os", "sys", "json", "path"
     };
     return libs;
 }
@@ -257,18 +257,33 @@ std::vector<std::string> Diagnostic::getModuleMembers(const std::string& moduleN
     if (moduleName == "math") {
         return {
             "sqrt", "abs", "pow", "floor", "ceil", "round", "min", "max",
-            "random", "random_seed", "seed", "sin", "cos", "tan", "pi", "e"
+            "random", "random_seed", "seed", "sin", "cos", "tan", "asin", "acos", "atan", "atan2",
+            "sinh", "cosh", "tanh", "exp", "log", "log10", "log2", "degrees", "radians",
+            "hypot", "trunc", "clamp", "pi", "e", "tau", "inf"
         };
     } else if (moduleName == "io") {
         return { "input", "ask", "read", "write", "append", "write_lines", "open", "print" };
     } else if (moduleName == "time") {
-        return { "now", "sleep" };
+        return { "now", "sleep", "time", "time_ns", "sleep_s", "format" };
     } else if (moduleName == "net" || moduleName == "http") {
         return { "get", "send" };
     } else if (moduleName == "gui") {
         return { "app", "window", "run" };
-    } else if (moduleName == "str") {
-        return { "lower", "upper", "case_sensitive", "incase_sensitive" };
+    } else if (moduleName == "str" || moduleName == "string") {
+        return { "lower", "upper", "case_sensitive", "incase_sensitive", "split", "join", "replace", "trim", "startswith", "endswith", "contains", "find" };
+    } else if (moduleName == "os") {
+        return {
+            "name", "sep", "linesep", "devnull", "getcwd", "chdir", "listdir", "mkdir", "makedirs",
+            "remove", "unlink", "rmdir", "removedirs", "rmtree", "rename", "system", "popen",
+            "getenv", "setenv", "putenv", "unsetenv", "getpid", "cpu_count", "exit", "path",
+            "exists", "isfile", "isdir", "getsize"
+        };
+    } else if (moduleName == "sys") {
+        return { "platform", "version", "argv", "exit", "getpid", "stdout_write", "stderr_write" };
+    } else if (moduleName == "json") {
+        return { "dumps", "loads", "stringify", "parse" };
+    } else if (moduleName == "path" || moduleName == "os.path") {
+        return { "exists", "isfile", "isdir", "getsize", "join", "basename", "dirname", "abspath", "splitext", "isabs" };
     }
     return {};
 }

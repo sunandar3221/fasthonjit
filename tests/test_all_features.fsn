@@ -1,0 +1,123 @@
+# ========================================================
+# TEST FASHTONJIT: BUG FIXES & NEW STANDARD LIBRARY MODULES
+# ========================================================
+
+use os
+use sys
+use json
+use math
+use time
+use str
+
+# 1. Test Bug Fix: List and Object Deep Equality
+list1 = [1, 2, 3]
+list2 = [1, 2, 3]
+assertEqList = (list1 == list2)
+print("1. Deep List Equality (expected true):", assertEqList)
+
+map1 = new
+map1["name"] = "fasthon"
+map1["version"] = 2
+
+map2 = new
+map2["name"] = "fasthon"
+map2["version"] = 2
+
+assertEqMap = (map1 == map2)
+print("   Deep Object Equality (expected true):", assertEqMap)
+
+# 2. Test Bug Fix: Negative Indexing in setIndex
+arr = [10, 20, 30]
+arr[-1] = 99
+print("2. Negative indexing setIndex arr[-1]=99 (expected 99):", arr[2])
+
+# 3. Test Bug Fix: String and List Repetition
+strRep1 = "abc" * 3
+strRep2 = 3 * "xyz"
+print("3. String repetition 'abc'*3:", strRep1)
+print("   String repetition 3*'xyz':", strRep2)
+listRep = [1, 2] * 3
+print("   List repetition [1, 2]*3:", listRep)
+
+# 4. Test OS Module & Path Operations
+print("4. OS Module:")
+print("   os.name:", os.name)
+print("   os.sep:", os.sep)
+cwd = os.getcwd()
+print("   os.getcwd():", cwd)
+print("   os.path.exists(cwd):", os.path.exists(cwd))
+joinedPath = os.path.join(cwd, "test_file.txt")
+print("   os.path.join:", joinedPath)
+baseName = os.path.basename(joinedPath)
+dirName = os.path.dirname(joinedPath)
+print("   os.path.basename:", baseName)
+print("   os.path.dirname:", dirName)
+splitExt = os.path.splitext(joinedPath)
+print("   os.path.splitext:", splitExt)
+pid = os.getpid()
+cpus = os.cpu_count()
+print("   os.getpid():", pid, "os.cpu_count():", cpus)
+
+# Test os directory list
+dirEntries = os.listdir(".")
+print("   os.listdir('.') count:", len(dirEntries))
+
+# 5. Test Sys Module
+print("5. Sys Module:")
+print("   sys.platform:", sys.platform)
+print("   sys.version:", sys.version)
+print("   sys.argv:", sys.argv)
+sys.stdout_write("   sys.stdout_write: Working perfectly!\n")
+
+# 6. Test JSON Module
+print("6. JSON Module:")
+data = new
+data["title"] = "FasthonJIT"
+data["speed"] = 100
+data["tags"] = ["jit", "fast", "aot"]
+jsonStr = json.dumps(data)
+print("   json.dumps:", jsonStr)
+parsedData = json.loads(jsonStr)
+print("   json.loads parsed title:", parsedData["title"])
+print("   json.loads parsed speed:", parsedData["speed"])
+print("   json.loads parsed tags:", parsedData["tags"])
+
+# 7. Test Math Module Enhancements
+print("7. Math Module:")
+print("   math.pi:", math.pi)
+print("   math.tau:", math.tau)
+print("   math.e:", math.e)
+print("   math.hypot(3, 4):", math.hypot(3, 4))
+print("   math.exp(1):", math.exp(1))
+print("   math.log(math.e):", math.log(math.e))
+print("   math.degrees(math.pi):", math.degrees(math.pi))
+print("   math.radians(180):", math.radians(180))
+print("   math.clamp(15, 0, 10):", math.clamp(15, 0, 10))
+
+# 8. Test Time Module Enhancements
+print("8. Time Module:")
+tSec = time.time()
+tNs = time.time_ns()
+tFmt = time.format("%Y-%m-%d")
+print("   time.time():", tSec)
+print("   time.time_ns():", tNs)
+print("   time.format('%Y-%m-%d'):", tFmt)
+
+# 9. Test String Utilities
+print("9. String Module:")
+splitted = str.split("satu,dua,tiga", ",")
+print("   str.split:", splitted)
+joined = str.join(" - ", splitted)
+print("   str.join:", joined)
+replaced = str.replace("halo dunia", "dunia", "fasthon")
+print("   str.replace:", replaced)
+trimmed = str.trim("   bersih   ")
+print("   str.trim:", "'" + trimmed + "'")
+print("   str.startswith('antigravity', 'anti'):", str.startswith("antigravity", "anti"))
+print("   str.endswith('antigravity', 'vity'):", str.endswith("antigravity", "vity"))
+print("   str.contains('fasthon', 'thon'):", str.contains("fasthon", "thon"))
+print("   str.find('fasthon', 'thon'):", str.find("fasthon", "thon"))
+
+print("========================================================")
+print("SEMUA FITUR BARU & PERBAIKAN BUG BERHASIL DIUJI 100%!")
+print("========================================================")

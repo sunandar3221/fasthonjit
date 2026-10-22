@@ -203,8 +203,34 @@ bool Value::operator==(const Value& other) const {
         case ValueType::INT: return intVal == other.intVal;
         case ValueType::FLOAT: return floatVal == other.floatVal;
         case ValueType::STRING: return strVal == other.strVal;
-        case ValueType::LIST: return listVal == other.listVal;
-        case ValueType::OBJECT: return objVal == other.objVal;
+        case ValueType::FUNCTION: return strVal == other.strVal;
+        case ValueType::LIST: {
+            if (listVal == other.listVal) return true;
+            if (!listVal || !other.listVal) {
+                size_t sz1 = listVal ? listVal->size() : 0;
+                size_t sz2 = other.listVal ? other.listVal->size() : 0;
+                return sz1 == sz2;
+            }
+            if (listVal->size() != other.listVal->size()) return false;
+            for (size_t i = 0; i < listVal->size(); ++i) {
+                if ((*listVal)[i] != (*other.listVal)[i]) return false;
+            }
+            return true;
+        }
+        case ValueType::OBJECT: {
+            if (objVal == other.objVal) return true;
+            if (!objVal || !other.objVal) {
+                size_t sz1 = objVal ? objVal->size() : 0;
+                size_t sz2 = other.objVal ? other.objVal->size() : 0;
+                return sz1 == sz2;
+            }
+            if (objVal->size() != other.objVal->size()) return false;
+            for (const auto& kv : *objVal) {
+                auto it = other.objVal->find(kv.first);
+                if (it == other.objVal->end() || it->second != kv.second) return false;
+            }
+            return true;
+        }
         default: return false;
     }
 }
@@ -241,8 +267,35 @@ Value Value::operator*(const Value& other) const {
         return Value(intVal * other.intVal);
     }
     if (isString() && other.isInt()) {
+        if (other.intVal <= 0) return Value("");
         std::string res;
+        res.reserve(strVal.size() * static_cast<size_t>(other.intVal));
         for (int64_t i = 0; i < other.intVal; ++i) res += strVal;
+        return Value(res);
+    }
+    if (isInt() && other.isString()) {
+        if (intVal <= 0) return Value("");
+        std::string res;
+        res.reserve(other.strVal.size() * static_cast<size_t>(intVal));
+        for (int64_t i = 0; i < intVal; ++i) res += other.strVal;
+        return Value(res);
+    }
+    if (isList() && other.isInt()) {
+        if (other.intVal <= 0 || !listVal) return Value::makeList();
+        std::vector<Value> res;
+        res.reserve(listVal->size() * static_cast<size_t>(other.intVal));
+        for (int64_t i = 0; i < other.intVal; ++i) {
+            res.insert(res.end(), listVal->begin(), listVal->end());
+        }
+        return Value(res);
+    }
+    if (isInt() && other.isList()) {
+        if (intVal <= 0 || !other.listVal) return Value::makeList();
+        std::vector<Value> res;
+        res.reserve(other.listVal->size() * static_cast<size_t>(intVal));
+        for (int64_t i = 0; i < intVal; ++i) {
+            res.insert(res.end(), other.listVal->begin(), other.listVal->end());
+        }
         return Value(res);
     }
     return Value(asFloat() * other.asFloat());
@@ -325,6 +378,9 @@ void Value::setIndex(const Value& index, const Value& val) {
     if (isList()) {
         if (!listVal) listVal = std::make_shared<std::vector<Value>>();
         int64_t idx = index.asInt();
+        if (idx < 0) {
+            idx += static_cast<int64_t>(listVal->size());
+        }
         if (idx >= 0) {
             if (idx >= static_cast<int64_t>(listVal->size())) {
                 listVal->resize(static_cast<size_t>(idx + 1));
