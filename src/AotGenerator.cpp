@@ -1180,6 +1180,7 @@ std::string AotGenerator::getRuntimeSource() {
 #include <sstream>
 #include <cstdint>
 #include <cstdlib>
+#include <limits>
 #include <stdexcept>
 #include <algorithm>
 #include <thread>
@@ -2423,7 +2424,8 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
             res = std::system(fallbackCmd.c_str());
         }
         if (res == 0) {
-            (void)std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+            const int chmodStatus = std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+            (void)chmodStatus;
         }
 #else
         std::string androidCompiler;
@@ -2474,7 +2476,8 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
             }
 #ifndef _WIN32
             if (res == 0) {
-                (void)std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+                const int chmodStatus = std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+                (void)chmodStatus;
             }
 #endif
         } else {
@@ -2501,14 +2504,16 @@ bool AotGenerator::buildBinary(const std::string& sourceFile, const std::string&
             res = std::system(fallbackCmd.c_str());
         }
         if (res == 0) {
-            (void)std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+            const int chmodStatus = std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+            (void)chmodStatus;
         }
 #elif defined(__ANDROID__)
         std::string compiler = "clang++";
         std::string cmd = compiler + " -std=c++20 -O3 -flto " + sourceFile + " -lm -o " + outputFile;
         res = std::system(cmd.c_str());
         if (res == 0) {
-            (void)std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+            const int chmodStatus = std::system(("chmod +x " + outputFile + " 2>/dev/null").c_str());
+            (void)chmodStatus;
         }
 #else
         // Cross-compiling to Linux from Windows
