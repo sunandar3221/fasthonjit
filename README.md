@@ -25,13 +25,13 @@ Proyek ini dilisensikan di bawah **Mozilla Public License 2.0 (MPL-2.0)**.
   - Bebas dari kurung kurawal `{}`
   - Bebas dari titik dua `:`
   - Bebas dari titik koma `;`
-  - Bebas dari keyword `return` (ekspresi terakhir yang dievaluasi otomatis menjadi nilai balik fungsi)
+  - Mendukung nilai balik implisit dari ekspresi terakhir, serta `return` untuk keluar lebih awal
   - Tanpa deklarasi tipe data wajib yang bertele-tele
   - Blok kode berbasis baris dan indentasi alami (dengan opsi penutup blok `end`)
 - **Arsitektur Multi-Tier Execution & Native JIT Engine**:
   - **Ultra-Fast In-Memory JIT Compiler (x86_64 & ARM64)**: Mengompilasi bytecode secara real-time langsung ke instruksi mesin native murni (x86_64 atau AArch64) di dalam executable memory (`PAGE_EXECUTE_READWRITE` / `mmap PROT_EXEC`). Komputasi intensif, perulangan, dan pemanggilan rekursif dieksekusi seketika pada kecepatan *bare-metal machine code* tanpa interpretasi virtual machine.
   - **In-Memory Flat-Stack VM Fallback & ARM32 Support**: Menyediakan eksekusi instan (0 ms compile time) untuk dynamic constructs tanpa membuat berkas cache di disk (*zero storage bloat*). Pada arsitektur 32-bit seperti **ARM32 (armv7l / armeabi-v7a)**, FasthonJIT berjalan mulus dalam mode VM interpreter teroptimasi tinggi tanpa overhead alokasi GC.
-  - **Ahead-Of-Time (AOT) Compiler Backend (`fasthonjit build`)**: Mengompilasi skrip `.fsn` langsung menjadi berkas binary native mandiri (`.exe` di Windows, ELF di Linux/Android) menggunakan optimasi agresif `-O3 -march=native` tanpa dependensi runtime.
+  - **Ahead-Of-Time (AOT) Compiler Backend (`fasthonjit build`)**: Mengompilasi skrip `.fsn` langsung menjadi berkas binary native mandiri (`.exe` di Windows, ELF di Linux/Android) menggunakan optimasi `-O3` tanpa dependensi runtime.
 - **Manajemen Memori Deterministik (Zero GC Overhead)**:
   - Menggunakan model Zero-Cost RAII sehingga alokasi dan dealokasi memori terjadi seketika tanpa jeda *stop-the-world garbage collection*.
 - **Batteries-Included Standard Library**:
@@ -173,7 +173,7 @@ Bagi pengembang yang ingin memodifikasi atau berkontribusi pada source code Fast
   ```bash
   git clone https://github.com/sunandar3221/fasthonjit.git
   cd fasthonjit
-  g++ -std=c++20 -O3 -march=native src/*.cpp -Iinclude -lwininet -lgdi32 -luser32 -o fasthonjit.exe
+  g++ -std=c++20 -O3 src/*.cpp -Iinclude -lwininet -lgdi32 -luser32 -o fasthonjit.exe
   ```
 
 ---
@@ -469,8 +469,10 @@ set person "level" "Senior"
 print get person "role"
 print person.level
 
-set person "sapa" (fn nama
-    "Halo " + nama)
+fn sapa nama
+    "Halo " + nama
+end
+print sapa "Budi"
 ```
 
 ### Bab 9: Jaringan & HTTP Client (`use net`, `net.get`, `net.send`)
@@ -534,29 +536,26 @@ phi = 3.14159
 
 fn tambah a b
     a + b
+end
 
 fn kurang a b
     a - b
+end
 
 fn kali a b
     a * b
+end
 
 fn bagi a b
     a / b
+end
 
 fn luas_lingkaran r
     phi * r * r
+end
 ```
 
-> 💡 **Tips Pengorganisasian dengan Objek (Namespacing):**
-> Anda juga dapat membungkus fungsi-fungsi library ke dalam suatu objek:
-> ```fasthon
-> sapaFn = fn nama
->     "Halo " + nama
-> 
-> helper = new
-> set helper "sapa" sapaFn
-> ```
+> 💡 **Tips Pengorganisasian:** Letakkan fungsi yang saling berkaitan di satu berkas `.fsn`, lalu impor berkas itu dari skrip utama. Contoh ini memakai fungsi bernama agar sintaksnya jelas.
 
 ---
 
@@ -764,6 +763,8 @@ while selesai == false
         print "Angkanya adalah: ${angkaRahasia}"
         print "Kamu berhasil menebak dalam ${percobaan} kali percobaan."
         selesai = true
+    end
+end
 ```
 
 ---
@@ -807,6 +808,7 @@ i = 0
 while i < 100000
     f.writeline("Log transaksi #${i} status=SUCCESS")
     i = i + 1
+end
 f.close()
 print "✅ 100.000 baris log transaksi berhasil ditulis dalam hitungan milidetik!"
 ```
@@ -835,6 +837,7 @@ print "⏳ Memulai Hitung Mundur..."
 loop 3
     print "Detik..."
     time.sleep 1000  # Jeda 1.000 milidetik (1 detik)
+end
 
 # Mengukur kecepatan komputasi algoritma (Benchmark stopwatch)
 waktuAwal = time.now()
@@ -844,6 +847,7 @@ i = 0
 while i < 1000000
     i = i + 1
     total = total + i
+end
 
 waktuAkhir = time.now()
 durasi = waktuAkhir - waktuAwal
@@ -944,6 +948,7 @@ elseif userCocok and not passCocok
     print "❌ Akses DITOLAK: Password salah (perhatikan huruf besar/kecil)!"
 else
     print "❌ Akses DITOLAK: Akun pengguna tidak ditemukan!"
+end
 ```
 
 ---
@@ -995,6 +1000,7 @@ print "Jumlah Core CPU: ${os.cpu_count()}"
 if not os.path.exists("backup")
     os.makedirs("backup/data")
     print "Direktori backup berhasil dibuat!"
+end
 
 # Menjalankan perintah terminal dan menangkap output
 output = os.popen("echo Fasthon Berjalan!")
@@ -1024,6 +1030,7 @@ use sys
 if len(sys.argv) < 2
     sys.stderr_write("Penggunaan: fasthon program.fsn <nama>\n")
     sys.exit(1)
+end
 
 nama = sys.argv[1]
 print "Halo, ${nama}! Anda berjalan di ${sys.platform}."
