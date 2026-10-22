@@ -1,7 +1,7 @@
 # FasthonJIT PowerShell Installer for Windows
 [CmdletBinding()]
 param (
-    [string]$Version = "v2.0.0"
+    [string]$Version = $env:FASTHON_VERSION
 )
 
 $ErrorActionPreference = 'Stop'
@@ -11,15 +11,31 @@ Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "       FasthonJIT Windows Installer       " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    Write-Host "  [3] FasthonJIT v3.0.0 (Prerelease terbaru) [Default]"
+    Write-Host "  [2] FasthonJIT v2.0.0"
+    Write-Host "  [1] Fasthon v1.0.0 (Legacy)"
+    $choice = Read-Host "Pilih versi [3/2/1] (default: 3)"
+    if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "3" }
+    $Version = $choice
+}
+
 # Normalize version
 switch -Regex ($Version) {
     "^(1|v1|v1\.0\.0|legacy)$" {
         $tag = "v1.0.0"
         $display = "v1.0.0 (Fasthon Legacy)"
     }
-    default {
+    "^(2|v2|v2\.0\.0|2\.0\.0)$" {
         $tag = "v2.0.0"
-        $display = "v2.0.0 (FasthonJIT Ultra Cepat Native Engine)"
+        $display = "v2.0.0 (FasthonJIT Native Engine)"
+    }
+    "^(3|v3|v3\.0\.0|3\.0\.0|latest)$" {
+        $tag = "v3.0.0"
+        $display = "v3.0.0 (FasthonJIT prerelease terbaru)"
+    }
+    default {
+        throw "Versi tidak dikenal: $Version. Pilih 3, 2, atau 1."
     }
 }
 
@@ -50,7 +66,6 @@ $downloaded = $false
 foreach ($asset in $assetCandidates) {
     $urls = @(
         "https://github.com/$repo/releases/download/$tag/$asset",
-        "https://github.com/$repo/releases/latest/download/$asset",
         "https://github.com/sunandar3221/Fasthon/releases/download/$tag/$asset"
     )
 

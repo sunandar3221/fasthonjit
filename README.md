@@ -63,11 +63,12 @@ Seluruh berkas binary resmi FasthonJIT otomatis dikompilasi oleh **GitHub Action
    ```
    > 💡 **Pilihan Versi Interaktif & Otomatis**:
    > - **Mode Interaktif**: Jika dijalankan langsung di terminal, installer akan menampilkan menu pilihan:
-   >   - Ketik `1` untuk **FasthonJIT v2.0.0** (Terbaru & Direkomendasikan - JIT aktif di x86_64 & ARM64).
-   >   - Ketik `2` untuk **Fasthon v1.0.0** (Versi Stabil Lama).
+   >   - Ketik `3` untuk **FasthonJIT v3.0.0** (Prerelease terbaru; pilihan default).
+   >   - Ketik `2` untuk **FasthonJIT v2.0.0**.
+   >   - Ketik `1` untuk **Fasthon v1.0.0** (Versi lama).
    > - **Otomatis Tanpa Tanya (Non-Interaktif)**:
-   >   - Pasang Versi 2: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 2`
-   >   - Pasang Versi 1: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 1`
+   >   - Pasang Versi 3: `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 3`
+   >   - Pilih versi 2 atau 1 dengan mengganti argumen terakhir menjadi `2` atau `1`.
    > - **Fitur Installer**:
    >   - Mendeteksi arsitektur CPU secara otomatis (`x86_64`, `ARM64/aarch64`, atau `ARM32/armv7`).
    >   - Mengunduh binary prebuilt teroptimasi dari GitHub Releases.
@@ -105,7 +106,7 @@ FasthonJIT dapat berjalan secara native dan berkecepatan penuh di smartphone And
    ```
    > 💡 **Kelebihan di Termux:**
    > - **Dukungan Arsitektur Otomatis**: Installer otomatis mengunduh biner native Android Bionic ARM64 (`fasthonjit-android-arm64` dengan JIT Engine aktif) pada HP 64-bit, atau ARM32 (`fasthonjit-android-armv7` dalam mode VM) pada HP 32-bit.
-   > - **Pilihan Versi**: Anda dapat memilih **Versi 2** (v2.0.0 terbaru dengan FasthonJIT) atau **Versi 1** (v1.0.0) saat installer berjalan, atau langsung memasang versi 2 via `curl -sSL https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.sh | bash -s -- 2`.
+   > - **Pilihan Versi**: Pilih **3** untuk v3.0.0 prerelease, **2** untuk v2.0.0, atau **1** untuk v1.0.0 saat installer berjalan. Non-interaktif, teruskan pilihan sebagai argumen terakhir (`3`, `2`, atau `1`).
    > - Otomatis terpasang ke `$PREFIX/bin/fasthonjit` (serta alias `fasthon` dan `eas`) sehingga tidak butuh akses root/sudo sama sekali.
 
 4. **Verifikasi Instalasi**:
@@ -131,17 +132,17 @@ Buka PowerShell (tekan `Win + X` lalu pilih Terminal/PowerShell) dan jalankan:
 ```powershell
 irm https://raw.githubusercontent.com/sunandar3221/fasthonjit/main/install.ps1 | iex
 ```
-> ✨ Skrip otomatis mengunduh binary rilis resmi terbaru, membuat alias `fasthon` dan `eas`, serta memasangnya ke direktori yang sudah terdaftar di `PATH` Windows (`WindowsApps`). Langsung bisa dipanggil dari mana saja!
+> ✨ Installer menampilkan pilihan versi **3**, **2**, atau **1** dan default ke v3.0.0 prerelease. Untuk memilih tanpa prompt, set `$env:FASTHON_VERSION = "2"` (atau `"1"`/`"3"`) sebelum menjalankan installer. Binary diunduh dari release repo `sunandar3221/fasthonjit`.
 
 #### Opsi 2: Unduh Cepat via Command Prompt (CMD) atau PowerShell
 Jalankan salah satu baris di bawah ini:
 - **PowerShell**:
   ```powershell
-  Invoke-WebRequest -Uri "https://github.com/sunandar3221/fasthonjit/releases/latest/download/fasthonjit.exe" -OutFile "$HOME\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
+  Invoke-WebRequest -Uri "https://github.com/sunandar3221/fasthonjit/releases/download/v3.0.0/fasthonjit.exe" -OutFile "$HOME\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
   ```
 - **Command Prompt (CMD)**:
   ```cmd
-  curl.exe -sSL https://github.com/sunandar3221/fasthonjit/releases/latest/download/fasthonjit.exe -o "%USERPROFILE%\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
+  curl.exe -sSL https://github.com/sunandar3221/fasthonjit/releases/download/v3.0.0/fasthonjit.exe -o "%USERPROFILE%\AppData\Local\Microsoft\WindowsApps\fasthonjit.exe"
   ```
 
 #### Opsi 3: Unduh Manual dari GitHub Releases

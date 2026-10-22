@@ -97,8 +97,11 @@ if [ -n "$1" ]; then
     1|v1|v1.0.0|"1.0.0"|legacy)
       SELECTED_VER="v1.0.0"
       ;;
-    2|v2|v2.0.0|"2.0.0"|latest)
+    2|v2|v2.0.0|"2.0.0")
       SELECTED_VER="v2.0.0"
+      ;;
+    3|v3|v3.0.0|"3.0.0"|latest)
+      SELECTED_VER="v3.0.0"
       ;;
     *)
       SELECTED_VER="$1"
@@ -112,28 +115,32 @@ elif (exec </dev/tty) 2>/dev/null || [ -t 0 ]; then
   echo "=========================================="
   echo "          Pilih Versi FasthonJIT          "
   echo "=========================================="
-  echo "  [1] FasthonJIT v2.0.0 (Native JIT Engine x86_64 & ARM64) [Default]"
-  echo "  [2] Fasthon v1.0.0 (Versi Lama Tanpa JIT)"
+  echo "  [3] FasthonJIT v3.0.0 (Prerelease terbaru) [Default]"
+  echo "  [2] FasthonJIT v2.0.0 (Native JIT Engine)"
+  echo "  [1] Fasthon v1.0.0 (Versi lama tanpa JIT)"
   echo "=========================================="
   USER_CHOICE=""
   if (exec </dev/tty) 2>/dev/null; then
-    printf "Masukkan pilihan versi [1/2] (default: 1): " >/dev/tty 2>/dev/null || true
-    read -r USER_CHOICE </dev/tty 2>/dev/null || USER_CHOICE="1"
+    printf "Masukkan pilihan versi [3/2/1] (default: 3): " >/dev/tty 2>/dev/null || true
+    read -r USER_CHOICE </dev/tty 2>/dev/null || USER_CHOICE="3"
   elif [ -t 0 ]; then
-    read -r -p "Masukkan pilihan versi [1/2] (default: 1): " USER_CHOICE 2>/dev/null || USER_CHOICE="1"
+    read -r -p "Masukkan pilihan versi [3/2/1] (default: 3): " USER_CHOICE 2>/dev/null || USER_CHOICE="3"
   else
-    USER_CHOICE="1"
+    USER_CHOICE="3"
   fi
   case "$USER_CHOICE" in
-    2|v1|v1.0.0|"1.0.0"|legacy)
+    1|v1|v1.0.0|"1.0.0"|legacy)
       SELECTED_VER="v1.0.0"
       ;;
-    *)
+    2|v2|v2.0.0|"2.0.0")
       SELECTED_VER="v2.0.0"
+      ;;
+    *)
+      SELECTED_VER="v3.0.0"
       ;;
   esac
 else
-  SELECTED_VER="v2.0.0"
+  SELECTED_VER="v3.0.0"
 fi
 
 case "$SELECTED_VER" in
@@ -141,9 +148,13 @@ case "$SELECTED_VER" in
     TAG_NAME="v1.0.0"
     VERSION_DISPLAY="v1.0.0 (Fasthon Legacy Tanpa JIT)"
     ;;
-  v2|v2.0.0|"2.0.0"|latest|"")
+  v2|v2.0.0|"2.0.0")
     TAG_NAME="v2.0.0"
-    VERSION_DISPLAY="v2.0.0 (FasthonJIT Ultra Cepat Native Engine)"
+    VERSION_DISPLAY="v2.0.0 (FasthonJIT Native Engine)"
+    ;;
+  v3|v3.0.0|"3.0.0"|latest|"")
+    TAG_NAME="v3.0.0"
+    VERSION_DISPLAY="v3.0.0 (FasthonJIT prerelease terbaru)"
     ;;
   *)
     TAG_NAME="$SELECTED_VER"
@@ -179,10 +190,7 @@ try_fetch() {
 URLS=(
   "https://github.com/$REPO/releases/download/$TAG_NAME/$ASSET_NAME"
   "https://github.com/$REPO/releases/download/$TAG_NAME/$FALLBACK_ASSET"
-  "https://github.com/$REPO/releases/latest/download/$ASSET_NAME"
-  "https://github.com/$REPO/releases/latest/download/$FALLBACK_ASSET"
   "https://github.com/sunandar3221/Fasthon/releases/download/$TAG_NAME/$FALLBACK_ASSET"
-  "https://github.com/sunandar3221/Fasthon/releases/latest/download/$FALLBACK_ASSET"
 )
 
 for target_url in "${URLS[@]}"; do
