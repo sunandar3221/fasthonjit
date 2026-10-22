@@ -1180,6 +1180,7 @@ std::string AotGenerator::getRuntimeSource() {
 #include <sstream>
 #include <cstdint>
 #include <cstdlib>
+#include <stdexcept>
 #include <algorithm>
 #include <thread>
 #include <cctype>
@@ -1435,8 +1436,9 @@ public:
 
     Value operator/(const Value& other) const {
         double b = other.asFloat();
-        if (b == 0.0) return Value(0.0);
-        if (type == ValueType::INT && other.type == ValueType::INT && (asInt() % other.asInt() == 0)) {
+        if (b == 0.0) throw std::runtime_error("division by zero");
+        if (type == ValueType::INT && other.type == ValueType::INT &&
+            !(intVal == INT64_MIN && other.intVal == -1) && (asInt() % other.asInt() == 0)) {
             return Value(asInt() / other.asInt());
         }
         return Value(asFloat() / b);
@@ -1444,7 +1446,8 @@ public:
 
     Value operator%(const Value& other) const {
         int64_t b = other.asInt();
-        if (b == 0) return Value(static_cast<int64_t>(0));
+        if (b == 0) throw std::runtime_error("modulo by zero");
+        if (asInt() == INT64_MIN && b == -1) return Value(static_cast<int64_t>(0));
         return Value(asInt() % b);
     }
 

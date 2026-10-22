@@ -304,9 +304,10 @@ Value Value::operator*(const Value& other) const {
 Value Value::operator/(const Value& other) const {
     double denom = other.asFloat();
     if (denom == 0.0) {
-        return Value(0.0);
+        throw std::runtime_error("division by zero");
     }
-    if (type == ValueType::INT && other.type == ValueType::INT && (intVal % other.intVal == 0)) {
+    if (type == ValueType::INT && other.type == ValueType::INT &&
+        !(intVal == INT64_MIN && other.intVal == -1) && (intVal % other.intVal == 0)) {
         return Value(intVal / other.intVal);
     }
     return Value(asFloat() / denom);
@@ -314,7 +315,10 @@ Value Value::operator/(const Value& other) const {
 
 Value Value::operator%(const Value& other) const {
     int64_t denom = other.asInt();
-    if (denom == 0) return Value(static_cast<int64_t>(0));
+    if (denom == 0) {
+        throw std::runtime_error("modulo by zero");
+    }
+    if (asInt() == INT64_MIN && denom == -1) return Value(static_cast<int64_t>(0));
     return Value(asInt() % denom);
 }
 
