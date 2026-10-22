@@ -3,6 +3,7 @@
 #include "Parser.hpp"
 #include "Diagnostic.hpp"
 #include <fstream>
+#include <limits>
 
 struct ReturnException {
     Value value;

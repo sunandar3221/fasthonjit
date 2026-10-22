@@ -99,7 +99,8 @@ int main(int argc, char* argv[]) {
         }
 
         Value content = StandardLibrary::readFile(inputFile);
-        if (content.strVal.empty()) {
+        std::ifstream inputCheck(inputFile, std::ios::binary);
+        if (!inputCheck.good()) {
             std::cerr << "Error: Could not read file " << inputFile << "\n";
             return 1;
         }
