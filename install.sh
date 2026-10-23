@@ -177,10 +177,10 @@ HTTP_OK=0
 try_fetch() {
   local url="$1"
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$TEMP_BIN" 2>/dev/null
+    curl -fL --progress-bar "$url" -o "$TEMP_BIN"
     return $?
   elif command -v wget >/dev/null 2>&1; then
-    wget -q "$url" -O "$TEMP_BIN" 2>/dev/null
+    wget --show-progress --progress=bar:force:noscroll "$url" -O "$TEMP_BIN"
     return $?
   fi
   return 1
